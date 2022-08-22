@@ -26,7 +26,7 @@ namespace Pinetime {
       Motion,
       Steps,
       Weather,
-      DoubleStopWatch,
+      DoubleTimer,
       PassKey,
       QuickSettings,
       Settings,

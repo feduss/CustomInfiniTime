@@ -5,19 +5,19 @@
 #include <FreeRTOS.h>
 #include "portmacro_cmsis.h"
 #include "systemtask/SystemTask.h"
+#include "components/motor/MotorController.h"
 
 namespace Pinetime::Applications::Screens {
 
   enum class TimerStates { Init, Running, Halted };
   enum class TimerTypes { First, Second };
 
-  class DoubleStopWatch : public Screen {
+  class DoubleTimer : public Screen {
   public:
 
-    DoubleStopWatch(DisplayApp* app, System::SystemTask& systemTask);
-    ~DoubleStopWatch() override;
+    DoubleTimer(DisplayApp* app, Controllers::MotorController& motorController, System::SystemTask& systemTask);
+    ~DoubleTimer() override;
     void Refresh() override;
-    bool OnButtonPushed() override;
 
     //Events that handler the play and stop of the first timer
     void playTimerEventHandler(lv_event_t event, TimerTypes timerType);
@@ -30,6 +30,7 @@ namespace Pinetime::Applications::Screens {
     void resetTimer(TimerTypes timerType);
 
   private:
+    Pinetime::Controllers::MotorController& motorController;
     Pinetime::System::SystemTask& systemTask;
     TimerStates firstTimerState = TimerStates::Init;
     TimerStates secondTimerState = TimerStates::Init;
@@ -38,14 +39,14 @@ namespace Pinetime::Applications::Screens {
 
     lv_task_t* taskRefresh;
 
-    const int firstTimerMinutes = 0;
-    const int firstTimerSeconds = 5;
+    const int firstTimerMinutes = 1;
+    const int firstTimerSeconds = 30;
     const int firstTimerInSeconds = (firstTimerMinutes * 60) + firstTimerSeconds;
     TickType_t startFirstTimer;
     TickType_t stopFirstTimer;
 
-    const int secondTimerMinutes = 0;
-    const int secondTimerSeconds = 7;
+    const int secondTimerMinutes = 2;
+    const int secondTimerSeconds = 30;
     const int secondTimerInSeconds = (secondTimerMinutes * 60) + secondTimerSeconds;
     TickType_t startSecondTimer;
     TickType_t stopSecondTimer;

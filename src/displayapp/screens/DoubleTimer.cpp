@@ -1,8 +1,6 @@
-#include "displayapp/screens/DoubleStopWatch.h"
-#include "displayapp/screens/Symbols.h"
 
-#define LV_COLOR_WHITE LV_COLOR_MAKE(0xFF,0xFF,0xFF)
-#define LV_COLOR_RED   LV_COLOR_MAKE(0xFF,0x00,0x00)
+#include "displayapp/screens/DoubleTimer.h"
+#include "displayapp/screens/Symbols.h"
 
 using namespace Pinetime::Applications::Screens;
 
@@ -11,14 +9,15 @@ const int convertTicksToTimeSeconds(const TickType_t timeElapsed) {
     const int timeElapsedCentis = timeElapsed * 100 / configTICK_RATE_HZ;
 
     const int secs = (timeElapsedCentis / 100) % 60;
-    return secs;
+    const int mins = (timeElapsedCentis / 100) / 60;
+    return (mins * 60) + secs;
   }
 
 void onFirstBtnPressed(lv_obj_t* obj, lv_event_t event) {
     if (event != LV_EVENT_CLICKED) {
     return;
     }
-    auto* stopWatch = static_cast<DoubleStopWatch*>(obj->user_data);
+    auto* stopWatch = static_cast<DoubleTimer*>(obj->user_data);
     if (stopWatch->getFirstTimerState() == TimerStates::Running) {
         stopWatch->stopTimerEventHandler(event, TimerTypes::First);
     } else {
@@ -31,7 +30,7 @@ void onSecondBtnPressed(lv_obj_t* obj, lv_event_t event) {
     if (event != LV_EVENT_CLICKED) {
     return;
     }
-    auto* stopWatch = static_cast<DoubleStopWatch*>(obj->user_data);
+    auto* stopWatch = static_cast<DoubleTimer*>(obj->user_data);
     if (stopWatch->getSecondTimerState() == TimerStates::Running) {
         stopWatch->stopTimerEventHandler(event, TimerTypes::Second);
     } else {
@@ -41,7 +40,8 @@ void onSecondBtnPressed(lv_obj_t* obj, lv_event_t event) {
 }
 
 //Constructor
-DoubleStopWatch::DoubleStopWatch(DisplayApp* app, System::SystemTask& systemTask) : Screen(app), systemTask {systemTask} {
+DoubleTimer::DoubleTimer(DisplayApp* app, Controllers::MotorController& motorController, System::SystemTask& systemTask) 
+: Screen(app), motorController {motorController}, systemTask {systemTask} {
 
   /*** UI FIRST SETUP***/
   firstTimerLabel = lv_label_create(lv_scr_act(), nullptr); //Label creation
@@ -73,13 +73,13 @@ DoubleStopWatch::DoubleStopWatch(DisplayApp* app, System::SystemTask& systemTask
   taskRefresh = lv_task_create(RefreshTaskCallback, LV_DISP_DEF_REFR_PERIOD, LV_TASK_PRIO_MID, this);
 }
 
-DoubleStopWatch::~DoubleStopWatch() {
+DoubleTimer::~DoubleTimer() {
   lv_task_del(taskRefresh);
   systemTask.PushMessage(Pinetime::System::Messages::EnableSleeping);
   lv_obj_clean(lv_scr_act());
 }
 
-void DoubleStopWatch::playTimerEventHandler(lv_event_t event, TimerTypes timerType) {
+void DoubleTimer::playTimerEventHandler(lv_event_t event, TimerTypes timerType) {
     if (timerType == TimerTypes::First) {
         firstTimerState = TimerStates::Running;
         lv_label_set_text_static(firstTimerIcon, Symbols::stop);
@@ -95,7 +95,7 @@ void DoubleStopWatch::playTimerEventHandler(lv_event_t event, TimerTypes timerTy
     }
 } 
 
-void DoubleStopWatch::stopTimerEventHandler(lv_event_t event, TimerTypes timerType) {
+void DoubleTimer::stopTimerEventHandler(lv_event_t event, TimerTypes timerType) {
     if (timerType == TimerTypes::First) {
         firstTimerState = TimerStates::Halted;
         lv_label_set_text_static(firstTimerIcon, Symbols::play);
@@ -109,34 +109,31 @@ void DoubleStopWatch::stopTimerEventHandler(lv_event_t event, TimerTypes timerTy
     }
 }
 
-TimerStates DoubleStopWatch::getFirstTimerState() {
+TimerStates DoubleTimer::getFirstTimerState() {
     return firstTimerState;
 }
 
-TimerStates DoubleStopWatch::getSecondTimerState() {
+TimerStates DoubleTimer::getSecondTimerState() {
     return secondTimerState;
 }
 
-bool DoubleStopWatch::OnButtonPushed() {
-  
-}
-
-void DoubleStopWatch::Refresh() {
+void DoubleTimer::Refresh() {
     if (firstTimerState == TimerStates::Running) {
         updateTimer(firstTimerLabel, startFirstTimer, stopFirstTimer, firstTimerInSeconds);
-    } else {
+    } else if (firstTimerState == TimerStates::Halted) {
         resetTimer(TimerTypes::First);
     }
     
     if (secondTimerState == TimerStates::Running) {
         updateTimer(secondTimerLabel, startSecondTimer, stopSecondTimer, secondTimerInSeconds);
-    } else {
+    } else if (secondTimerState == TimerStates::Halted) {
         resetTimer(TimerTypes::Second);
     }
 }
 
-void DoubleStopWatch::updateTimer(lv_obj_t* label, TickType_t startTimer, TickType_t stopTimer, const int timeInSeconds) {
-    stopTimer = xTaskGetTickCount() - startTimer;
+void DoubleTimer::updateTimer(lv_obj_t* label, TickType_t startTimer, TickType_t stopTimer, const int timeInSeconds) {
+    const int currentTime = xTaskGetTickCount();
+    stopTimer = (currentTime - startTimer) & 0XFFFFFFFF;
     const int secondsElapsed = convertTicksToTimeSeconds(stopTimer);
     const int secondsDiff = timeInSeconds - secondsElapsed;
     if(secondsDiff >= 0) {
@@ -147,15 +144,24 @@ void DoubleStopWatch::updateTimer(lv_obj_t* label, TickType_t startTimer, TickTy
         lv_label_set_text_fmt(label, "00:00");
         ///Red label for expired timer (not halted)
         lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_RED);
+
+        ///WIP, i can't test it in simulator
+        if(firstTimerState != TimerStates::Running && secondTimerState != TimerStates::Running) {
+            motorController.RunForDuration(60);
+            motorController.RunForDuration(60);
+            motorController.RunForDuration(60);
+        }
     }
 }
 
-void DoubleStopWatch::resetTimer(TimerTypes timerType) {
+void DoubleTimer::resetTimer(TimerTypes timerType) {
     if (timerType == TimerTypes::First) {
         lv_label_set_text_fmt(firstTimerLabel, "%02d:%02d", firstTimerMinutes, firstTimerSeconds);
         lv_obj_set_style_local_text_color(firstTimerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE); // Label color init
+        firstTimerState = TimerStates::Init;
     } else {
         lv_label_set_text_fmt(secondTimerLabel, "%02d:%02d", secondTimerMinutes, secondTimerSeconds);
         lv_obj_set_style_local_text_color(secondTimerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE); 
+        secondTimerState = TimerStates::Init;
     }
 }

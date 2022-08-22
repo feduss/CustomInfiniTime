@@ -19,6 +19,7 @@
 #include "displayapp/screens/StopWatch.h"
 #include "displayapp/screens/Metronome.h"
 #include "displayapp/screens/Music.h"
+#include "displayapp/screens/DoubleTimer.h"
 #include "displayapp/screens/Navigation.h"
 #include "displayapp/screens/Notifications.h"
 #include "displayapp/screens/SystemInfo.h"
@@ -29,7 +30,6 @@
 #include "displayapp/screens/Steps.h"
 #include "displayapp/screens/PassKey.h"
 #include "displayapp/screens/Error.h"
-#include "displayapp/screens/DoubleStopWatch.h"
 
 #include "drivers/Cst816s.h"
 #include "drivers/St7789.h"
@@ -477,8 +477,8 @@ void DisplayApp::LoadApp(Apps app, DisplayApp::FullRefreshDirections direction) 
     case Apps::Steps:
       currentScreen = std::make_unique<Screens::Steps>(this, motionController, settingsController);
       break;
-    case Apps::DoubleStopWatch:
-      currentScreen = std::make_unique<Screens::DoubleStopWatch>(this, *systemTask);
+    case Apps::DoubleTimer:
+      currentScreen = std::make_unique<Screens::DoubleTimer>(this, motorController, *systemTask);
       ReturnApp(Apps::Launcher, FullRefreshDirections::Down, TouchEvents::None);
       break;
   }
