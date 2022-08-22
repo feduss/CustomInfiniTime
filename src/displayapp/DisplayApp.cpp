@@ -29,6 +29,7 @@
 #include "displayapp/screens/Steps.h"
 #include "displayapp/screens/PassKey.h"
 #include "displayapp/screens/Error.h"
+#include "displayapp/screens/DoubleStopWatch.h"
 
 #include "drivers/Cst816s.h"
 #include "drivers/St7789.h"
@@ -475,6 +476,10 @@ void DisplayApp::LoadApp(Apps app, DisplayApp::FullRefreshDirections direction) 
       break;
     case Apps::Steps:
       currentScreen = std::make_unique<Screens::Steps>(this, motionController, settingsController);
+      break;
+    case Apps::DoubleStopWatch:
+      currentScreen = std::make_unique<Screens::DoubleStopWatch>(this, *systemTask);
+      ReturnApp(Apps::Launcher, FullRefreshDirections::Down, TouchEvents::None);
       break;
   }
   currentApp = app;
