@@ -1,6 +1,8 @@
 # DoubleStopWatch app preview:
 
-![immagine](https://user-images.githubusercontent.com/1686561/185995325-596656fc-1b2f-49c5-bd7b-21a0d02b4f23.png)
+![immagine](https://user-images.githubusercontent.com/1686561/186025448-cf3f0c8d-40f0-4be6-be60-fc5519a3b0cf.png)
+
+(Only fixed timers atm)
 
 # OG README:
 
