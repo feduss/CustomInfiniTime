@@ -2,10 +2,8 @@
 
 #include "displayapp/screens/Screen.h"
 #include <lvgl/lvgl.h>
-
 #include <FreeRTOS.h>
 #include "portmacro_cmsis.h"
-
 #include "systemtask/SystemTask.h"
 
 namespace Pinetime::Applications::Screens {
@@ -28,6 +26,9 @@ namespace Pinetime::Applications::Screens {
     TimerStates getFirstTimerState();
     TimerStates getSecondTimerState();
 
+    void updateTimer(lv_obj_t* label, TickType_t startTimer, TickType_t stopTimer, const int timeInSeconds);
+    void resetTimer(TimerTypes timerType);
+
   private:
     Pinetime::System::SystemTask& systemTask;
     TimerStates firstTimerState = TimerStates::Init;
@@ -36,5 +37,17 @@ namespace Pinetime::Applications::Screens {
     lv_obj_t *secondTimerPlayStopBtn, *secondTimerIcon, *secondTimerLabel;
 
     lv_task_t* taskRefresh;
+
+    const int firstTimerMinutes = 0;
+    const int firstTimerSeconds = 5;
+    const int firstTimerInSeconds = (firstTimerMinutes * 60) + firstTimerSeconds;
+    TickType_t startFirstTimer;
+    TickType_t stopFirstTimer;
+
+    const int secondTimerMinutes = 0;
+    const int secondTimerSeconds = 7;
+    const int secondTimerInSeconds = (secondTimerMinutes * 60) + secondTimerSeconds;
+    TickType_t startSecondTimer;
+    TickType_t stopSecondTimer;
   };
 }
