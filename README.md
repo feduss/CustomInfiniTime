@@ -1,3 +1,9 @@
+# DoubleStopWatch app preview:
+
+![immagine](https://user-images.githubusercontent.com/1686561/185995325-596656fc-1b2f-49c5-bd7b-21a0d02b4f23.png)
+
+# OG README:
+
 # [InfiniTime](https://github.com/InfiniTimeOrg/InfiniTime)
 
 [![Build PineTime Firmware](https://github.com/InfiniTimeOrg/InfiniTime/workflows/Build%20PineTime%20Firmware/badge.svg?branch=master)](https://github.com/InfiniTimeOrg/InfiniTime/actions)
