@@ -13,6 +13,8 @@ const DoubleTimer::Time convertTicksToTimeSegments(const TickType_t timeElapsed)
     return DoubleTimer::Time {mins, secs, ms};
   }
 
+constexpr TickType_t blinkInterval = pdMS_TO_TICKS(1000);
+
 void onFirstBtnPressed(lv_obj_t* obj, lv_event_t event) {
     if (event != LV_EVENT_CLICKED) { return; }
     auto* stopWatch = static_cast<DoubleTimer*>(obj->user_data);
@@ -42,12 +44,15 @@ DoubleTimer::DoubleTimer(Controllers::MotorController& motorController, System::
   /*** UI FIRST SETUP***/
   appTitleLabel = lv_label_create(lv_scr_act(), nullptr);
   lv_obj_set_style_local_text_font(appTitleLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &jetbrains_mono_bold_20);
-  lv_label_set_text_fmt(appTitleLabel, "DoubleTimer v %d.%d.%d", appVersionMajor, appVersionMinor, appVersionPatch);
+  lv_label_set_text_fmt(appTitleLabel, "DoubleTimer v%d.%d.%d", appVersionMajor, appVersionMinor, appVersionPatch);
   lv_obj_align(appTitleLabel, lv_scr_act(), LV_ALIGN_IN_TOP_MID, 0, 0);
 
   firstTimerLabel = lv_label_create(lv_scr_act(), nullptr); //Label creation
   lv_obj_set_style_local_text_font(firstTimerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &jetbrains_mono_bold_20); // Label font init
-  lv_obj_align(firstTimerLabel, lv_scr_act(), LV_ALIGN_CENTER, -48, -32); // Label position init (which object, align to, align type, x offset, y offset) --> 
+
+  // Label position init (object to align, align to object, align type, x offset (if increased, it goes to the right), y offset (if increased, it goes to the bottom))
+  // https://docs.lvgl.io/master/widgets/obj.html#alignment
+  lv_obj_align(firstTimerLabel, lv_scr_act(), LV_ALIGN_CENTER, -48, -32); 
 
   secondTimerLabel = lv_label_create(lv_scr_act(), nullptr);
   lv_obj_set_style_local_text_font(secondTimerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &jetbrains_mono_bold_20);
@@ -57,7 +62,10 @@ DoubleTimer::DoubleTimer(Controllers::MotorController& motorController, System::
   firstTimerPlayStopBtn->user_data = this;
   lv_obj_set_event_cb(firstTimerPlayStopBtn, onFirstBtnPressed);
   lv_obj_set_size(firstTimerPlayStopBtn, 50, 50);
-  lv_obj_align(firstTimerPlayStopBtn, firstTimerLabel, LV_ALIGN_OUT_BOTTOM_MID, 0, 8);
+
+  //TODO: LV_ALIGN_OUT_BOTTOM_MID should center align to the bottom of the anchor item...but it doesn't actually...so i added an x-axis padding of 6
+  lv_obj_align(firstTimerPlayStopBtn, firstTimerLabel, LV_ALIGN_OUT_BOTTOM_MID, 6, 8);
+
   firstTimerIcon = lv_label_create(firstTimerPlayStopBtn, nullptr);
   lv_label_set_text_static(firstTimerIcon, Symbols::play); //Play icon is the first rendered
 
@@ -65,7 +73,10 @@ DoubleTimer::DoubleTimer(Controllers::MotorController& motorController, System::
   secondTimerPlayStopBtn->user_data = this;
   lv_obj_set_event_cb(secondTimerPlayStopBtn, onSecondBtnPressed);
   lv_obj_set_size(secondTimerPlayStopBtn, 50, 50);
-  lv_obj_align(secondTimerPlayStopBtn, secondTimerLabel, LV_ALIGN_OUT_BOTTOM_MID, 0, 8);
+
+  //TODO: LV_ALIGN_OUT_BOTTOM_MID should center align to the bottom of the anchor item...but it doesn't actually...so i added an x-axis padding of 6
+  lv_obj_align(secondTimerPlayStopBtn, secondTimerLabel, LV_ALIGN_OUT_BOTTOM_MID, 6, 8);
+
   secondTimerIcon = lv_label_create(secondTimerPlayStopBtn, nullptr);
   lv_label_set_text_static(secondTimerIcon, Symbols::play); //Play icon is the first rendered
 
@@ -82,6 +93,7 @@ DoubleTimer::~DoubleTimer() {
 }
 
 void DoubleTimer::playTimerEventHandler(TimerTypes timerType) {
+    blinkTime = xTaskGetTickCount() + blinkInterval;
     if (timerType == TimerTypes::First) {
         firstTimerState = TimerStates::Running;
         lv_label_set_text_static(firstTimerIcon, Symbols::stop);
@@ -123,33 +135,34 @@ void DoubleTimer::Refresh() {
 }
 
 void DoubleTimer::updateTimer(TimerTypes timerType, lv_obj_t* label, TickType_t startTimer, TickType_t stopTimer, const int timeInSeconds) {
-    const int currentTime = xTaskGetTickCount();
+    const TickType_t currentTime = xTaskGetTickCount();
     stopTimer = (currentTime - startTimer) & 0XFFFFFFFF;
     DoubleTimer::Time times = convertTicksToTimeSegments(stopTimer);
-    if (times.ms == 0) {
+    if (currentTime > blinkTime) {
+        //printf("\nupdate label --- min: %d, sec: %d, ms: %d, currentTime: %d, blinkTime: %d", times.mins, times.secs, times.ms, currentTime, blinkTime);
+        blinkTime = xTaskGetTickCount() + blinkInterval;
         const double secondsElapsed = (times.mins * 60.0) + times.secs + times.ms / 60.0;
-        const double secondsDiff = double(timeInSeconds) - secondsElapsed;
+        const double secondsDiff = std::ceil(double(timeInSeconds) - secondsElapsed);
         const int secondsDiffInt = int(secondsDiff);
         if(secondsDiffInt > 0) {
             const int minutes = (secondsDiff) / 60;
             const int seconds = minutes == 0 ? secondsDiff : (secondsDiff - (minutes * 60));
             //const int milliseconds = (secondsDiff - int(secondsDiff)) * 100;
             lv_label_set_text_fmt(label, "%02d:%02d", minutes, seconds);
-
+            
             ///Orange label for expiring timer
-            if (secondsDiff == 5) {
+            if (secondsDiffInt <= 5) {
                 lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_ORANGE);
-                //If the timer is about to expire, activate a short vibration
-                if (!(firstTimerState == TimerStates::Running && secondTimerState == TimerStates::Running)) {
-                    printf("Vibration at second %f\n", secondsDiff);
-                    motorController.RunForDuration(90);
-                }
+                //The timer is about to expire, activate a short vibration
+                motorController.RunForDuration(90);
             } 
             
         } else if (secondsDiffInt == 0){
             lv_label_set_text_fmt(label, "00:00");
             ///Red label for expired timer
             lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_RED);
+            //The timer is expired, activate a long vibration
+            motorController.RunForDuration(180);
             if (timerType == TimerTypes::First) {
                 firstTimerState = TimerStates::Expired;
             } else {
