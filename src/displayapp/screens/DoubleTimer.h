@@ -51,7 +51,7 @@ namespace Pinetime {
 
         const int appVersionMajor = 1;
         const int appVersionMinor = 0;
-        const int appVersionPatch = 5;
+        const int appVersionPatch = 6;
 
         const int firstTimerMinutes = 1;
         const int firstTimerSeconds = 30;
@@ -64,6 +64,8 @@ namespace Pinetime {
         const int secondTimerInSeconds = (secondTimerMinutes * 60) + secondTimerSeconds;
         TickType_t startSecondTimer;
         TickType_t stopSecondTimer;
+
+        TickType_t blinkTime = 0;
       };
     }	
 
