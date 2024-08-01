@@ -397,6 +397,7 @@ list(APPEND SOURCE_FILES
         displayapp/screens/Alarm.cpp
         displayapp/screens/Styles.cpp
         displayapp/screens/WeatherSymbols.cpp
+        displayapp/screens/DoubleTimer.cpp
         displayapp/Colors.cpp
         displayapp/widgets/Counter.cpp
         displayapp/widgets/PageIndicator.cpp
@@ -611,6 +612,7 @@ set(INCLUDE_FILES
         displayapp/screens/Timer.h
         displayapp/screens/Dice.h
         displayapp/screens/Alarm.h
+        displayapp/screens/DoubleTimer.h
         displayapp/Colors.h
         displayapp/widgets/Counter.h
         displayapp/widgets/PageIndicator.h
