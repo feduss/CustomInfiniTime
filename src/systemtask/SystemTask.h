@@ -15,6 +15,7 @@
 #include "systemtask/SystemMonitor.h"
 #include "components/ble/NimbleController.h"
 #include "components/ble/NotificationManager.h"
+#include "components/stopwatch/StopWatchController.h"
 #include "components/alarm/AlarmController.h"
 #include "components/fs/FS.h"
 #include "touchhandler/TouchHandler.h"
@@ -52,7 +53,7 @@ namespace Pinetime {
   namespace System {
     class SystemTask {
     public:
-      enum class SystemTaskState { Sleeping, Running, GoingToSleep, WakingUp };
+      enum class SystemTaskState { Sleeping, Running, GoingToSleep, AODSleeping };
       SystemTask(Drivers::SpiMaster& spi,
                  Pinetime::Drivers::SpiNorFlash& spiNorFlash,
                  Drivers::TwiMaster& twiMaster,
@@ -60,6 +61,7 @@ namespace Pinetime {
                  Controllers::Battery& batteryController,
                  Controllers::Ble& bleController,
                  Controllers::DateTime& dateTimeController,
+                 Controllers::StopWatchController& stopWatchController,
                  Controllers::AlarmController& alarmController,
                  Drivers::Watchdog& watchdog,
                  Pinetime::Controllers::NotificationManager& notificationManager,
@@ -77,21 +79,24 @@ namespace Pinetime {
       void Start();
       void PushMessage(Messages msg);
 
-      void OnTouchEvent();
-
-      void OnIdle();
-      void OnDim();
-
       bool IsSleepDisabled() {
-        return doNotGoToSleep;
+        return wakeLocksHeld > 0;
       }
 
       Pinetime::Controllers::NimbleController& nimble() {
         return nimbleController;
       };
 
+      Pinetime::Controllers::NotificationManager& GetNotificationManager() {
+        return notificationManager;
+      };
+
+      Pinetime::Controllers::Settings& GetSettings() {
+        return settingsController;
+      };
+
       bool IsSleeping() const {
-        return state == SystemTaskState::Sleeping || state == SystemTaskState::WakingUp;
+        return state != SystemTaskState::Running;
       }
 
     private:
@@ -105,6 +110,7 @@ namespace Pinetime {
 
       Pinetime::Controllers::Ble& bleController;
       Pinetime::Controllers::DateTime& dateTimeController;
+      Pinetime::Controllers::StopWatchController& stopWatchController;
       Pinetime::Controllers::AlarmController& alarmController;
       QueueHandle_t systemTasksMsgQueue;
       Pinetime::Drivers::Watchdog& watchdog;
@@ -127,15 +133,15 @@ namespace Pinetime {
       bool isBleDiscoveryTimerRunning = false;
       uint8_t bleDiscoveryTimer = 0;
       TimerHandle_t measureBatteryTimer;
-      bool doNotGoToSleep = false;
+      uint8_t wakeLocksHeld = 0;
       SystemTaskState state = SystemTaskState::Running;
 
       void HandleButtonAction(Controllers::ButtonActions action);
       bool fastWakeUpDone = false;
 
       void GoToRunning();
+      void GoToSleep();
       void UpdateMotion();
-      bool stepCounterMustBeReset = false;
       static constexpr TickType_t batteryMeasurementPeriod = pdMS_TO_TICKS(10 * 60 * 1000);
 
       SystemMonitor monitor;

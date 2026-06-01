@@ -18,6 +18,7 @@ namespace Pinetime {
     class St7789;
     class Cst816S;
     class Watchdog;
+    class SpiNorFlash;
   }
 
   namespace Controllers {
@@ -30,6 +31,7 @@ namespace Pinetime {
     class MotionController;
     class TouchHandler;
     class MotorController;
+    class StopWatchController;
     class AlarmController;
     class BrightnessController;
     class FS;
@@ -56,10 +58,12 @@ namespace Pinetime {
                  Controllers::Settings& settingsController,
                  Pinetime::Controllers::MotorController& motorController,
                  Pinetime::Controllers::MotionController& motionController,
+                 Pinetime::Controllers::StopWatchController& stopWatchController,
                  Pinetime::Controllers::AlarmController& alarmController,
                  Pinetime::Controllers::BrightnessController& brightnessController,
                  Pinetime::Controllers::TouchHandler& touchHandler,
-                 Pinetime::Controllers::FS& filesystem);
+                 Pinetime::Controllers::FS& filesystem,
+                 Pinetime::Drivers::SpiNorFlash& spiNorFlash);
       void Start();
 
       void Start(Pinetime::System::BootErrors) {

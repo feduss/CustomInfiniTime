@@ -14,7 +14,7 @@ namespace Pinetime {
     class Ppg {
     public:
       Ppg();
-      int8_t Preprocess(uint32_t hrs, uint32_t als);
+      int8_t Preprocess(uint16_t hrs, uint16_t als);
       int HeartRate();
       void Reset(bool resetDaqBuffer);
       static constexpr int deltaTms = 100;
@@ -71,6 +71,7 @@ namespace Pinetime {
       uint16_t dataIndex = 0;
       float peakLocation;
       bool resetSpectralAvg = true;
+      bool enoughData = false;
 
       int ProcessHeartRate(bool init);
       float HeartRateAverage(float hr);

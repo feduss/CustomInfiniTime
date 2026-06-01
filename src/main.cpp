@@ -35,6 +35,7 @@
 #include "components/motor/MotorController.h"
 #include "components/datetime/DateTimeController.h"
 #include "components/heartrate/HeartRateController.h"
+#include "components/stopwatch/StopWatchController.h"
 #include "components/fs/FS.h"
 #include "drivers/Spi.h"
 #include "drivers/SpiMaster.h"
@@ -93,18 +94,19 @@ TimerHandle_t debounceChargeTimer;
 Pinetime::Controllers::Battery batteryController;
 Pinetime::Controllers::Ble bleController;
 
-Pinetime::Controllers::HeartRateController heartRateController;
-Pinetime::Applications::HeartRateTask heartRateApp(heartRateSensor, heartRateController);
-
 Pinetime::Controllers::FS fs {spiNorFlash};
 Pinetime::Controllers::Settings settingsController {fs};
 Pinetime::Controllers::MotorController motorController {};
+
+Pinetime::Controllers::HeartRateController heartRateController;
+Pinetime::Applications::HeartRateTask heartRateApp(heartRateSensor, heartRateController, settingsController);
 
 Pinetime::Controllers::DateTime dateTimeController {settingsController};
 Pinetime::Drivers::Watchdog watchdog;
 Pinetime::Controllers::NotificationManager notificationManager;
 Pinetime::Controllers::MotionController motionController;
-Pinetime::Controllers::AlarmController alarmController {dateTimeController};
+Pinetime::Controllers::StopWatchController stopWatchController;
+Pinetime::Controllers::AlarmController alarmController {dateTimeController, fs};
 Pinetime::Controllers::TouchHandler touchHandler;
 Pinetime::Controllers::ButtonHandler buttonHandler;
 Pinetime::Controllers::BrightnessController brightnessController {};
@@ -120,10 +122,12 @@ Pinetime::Applications::DisplayApp displayApp(lcd,
                                               settingsController,
                                               motorController,
                                               motionController,
+                                              stopWatchController,
                                               alarmController,
                                               brightnessController,
                                               touchHandler,
-                                              fs);
+                                              fs,
+                                              spiNorFlash);
 
 Pinetime::System::SystemTask systemTask(spi,
                                         spiNorFlash,
@@ -132,6 +136,7 @@ Pinetime::System::SystemTask systemTask(spi,
                                         batteryController,
                                         bleController,
                                         dateTimeController,
+                                        stopWatchController,
                                         alarmController,
                                         watchdog,
                                         notificationManager,
@@ -167,7 +172,7 @@ std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> NoI
 
 void nrfx_gpiote_evt_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
   if (pin == Pinetime::PinMap::Cst816sIrq) {
-    systemTask.OnTouchEvent();
+    systemTask.PushMessage(Pinetime::System::Messages::OnTouchEvent);
     return;
   }
 
