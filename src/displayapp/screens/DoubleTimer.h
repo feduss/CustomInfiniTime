@@ -12,7 +12,7 @@ namespace Pinetime {
   namespace Applications {
     namespace Screens {
 
-      enum class TimerStates { Init, Running, Expired };
+      enum class TimerStates { Init, Running };
       enum class TimerTypes { First, Second };
 
       class DoubleTimer : public Screen {
@@ -28,6 +28,9 @@ namespace Pinetime {
           int ms;
         };
 
+        void setupViews();
+        void setupBindings();
+        void firstReactionShock();
         //Events that handler the play and stop of the first timer
         void playTimerEventHandler(TimerTypes timerType);
         void stopTimerEventHandler(TimerTypes timerType);
@@ -35,8 +38,20 @@ namespace Pinetime {
         TimerStates getFirstTimerState();
         TimerStates getSecondTimerState();
 
-        void updateTimer(TimerTypes timerType, lv_obj_t* label, TickType_t startTimer, TickType_t stopTimer, const int timeInSeconds);
+        static void onFirstBtnPressed(lv_obj_t* obj, lv_event_t event);
+        static void onSecondBtnPressed(lv_obj_t* obj, lv_event_t event);
+
+        void updateTimer(TimerTypes timerType);
         void resetTimer(TimerTypes timerType);
+        bool isTimerActive();
+
+        static Time convertTicksToTimeSegments(const TickType_t timeElapsed);
+
+        bool OnButtonPushed() override;
+        bool OnTouchEvent(Pinetime::Applications::TouchEvents event) override;
+
+        void enableScreenSleeping();
+        void disableScreenSleeping();
 
       private:
         Pinetime::Controllers::MotorController& motorController;
@@ -51,7 +66,7 @@ namespace Pinetime {
 
         const int appVersionMajor = 1;
         const int appVersionMinor = 0;
-        const int appVersionPatch = 6;
+        const int appVersionPatch = 7;
 
         const int firstTimerMinutes = 1;
         const int firstTimerSeconds = 30;
@@ -76,6 +91,10 @@ namespace Pinetime {
 
       static Screens::Screen* Create(AppControllers& controllers) {
         return new Screens::DoubleTimer(controllers.motorController, *controllers.systemTask);
+      };
+
+      static bool IsAvailable(Pinetime::Controllers::FS& /*filesystem*/) {
+        return true;
       };
     };
   }

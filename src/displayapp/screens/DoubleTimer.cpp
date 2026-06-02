@@ -4,137 +4,302 @@
 
 using namespace Pinetime::Applications::Screens;
 
-const DoubleTimer::Time convertTicksToTimeSegments(const TickType_t timeElapsed) {
-    const int timeElapsedCentis = timeElapsed * 100 / configTICK_RATE_HZ;
-
-    const int ms = (timeElapsedCentis % 100);
-    const int secs = (timeElapsedCentis / 100) % 60;
-    const int mins = (timeElapsedCentis / 100) / 60;
-    return DoubleTimer::Time {mins, secs, ms};
-  }
-
 constexpr TickType_t blinkInterval = pdMS_TO_TICKS(1000);
 
-void onFirstBtnPressed(lv_obj_t* obj, lv_event_t event) {
-    if (event != LV_EVENT_CLICKED) { return; }
-    auto* stopWatch = static_cast<DoubleTimer*>(obj->user_data);
-    if (stopWatch->getFirstTimerState() == TimerStates::Running) {
-        stopWatch->stopTimerEventHandler(TimerTypes::First);
-    } else if (stopWatch->getSecondTimerState() != TimerStates::Running) {
-        stopWatch->playTimerEventHandler(TimerTypes::First);
-    }
-    
-}
-
-void onSecondBtnPressed(lv_obj_t* obj, lv_event_t event) {
-    if (event != LV_EVENT_CLICKED) { return; }
-    auto* stopWatch = static_cast<DoubleTimer*>(obj->user_data);
-    if (stopWatch->getSecondTimerState() == TimerStates::Running) {
-        stopWatch->stopTimerEventHandler(TimerTypes::Second);
-    } else if (stopWatch->getFirstTimerState() != TimerStates::Running) {
-        stopWatch->playTimerEventHandler(TimerTypes::Second);
-    }
-    
-}
-
 //Constructor
-DoubleTimer::DoubleTimer(Controllers::MotorController& motorController, System::SystemTask& systemTask) 
+DoubleTimer::DoubleTimer(
+    Controllers::MotorController& motorController, 
+    System::SystemTask& systemTask
+) 
 : motorController {motorController}, systemTask {systemTask} {
 
-  /*** UI FIRST SETUP***/
-  appTitleLabel = lv_label_create(lv_scr_act(), nullptr);
-  lv_obj_set_style_local_text_font(appTitleLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &jetbrains_mono_bold_20);
-  lv_label_set_text_fmt(appTitleLabel, "DoubleTimer v%d.%d.%d", appVersionMajor, appVersionMinor, appVersionPatch);
-  lv_obj_align(appTitleLabel, lv_scr_act(), LV_ALIGN_IN_TOP_MID, 0, 0);
+  setupViews();
+  setupBindings();
 
-  firstTimerLabel = lv_label_create(lv_scr_act(), nullptr); //Label creation
-  lv_obj_set_style_local_text_font(firstTimerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &jetbrains_mono_bold_20); // Label font init
-
-  // Label position init (object to align, align to object, align type, x offset (if increased, it goes to the right), y offset (if increased, it goes to the bottom))
-  // https://docs.lvgl.io/master/widgets/obj.html#alignment
-  lv_obj_align(firstTimerLabel, lv_scr_act(), LV_ALIGN_CENTER, -48, -32); 
-
-  secondTimerLabel = lv_label_create(lv_scr_act(), nullptr);
-  lv_obj_set_style_local_text_font(secondTimerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &jetbrains_mono_bold_20);
-  lv_obj_align(secondTimerLabel, lv_scr_act(), LV_ALIGN_CENTER, 48, -32); 
-
-  firstTimerPlayStopBtn = lv_btn_create(lv_scr_act(), nullptr);
-  firstTimerPlayStopBtn->user_data = this;
-  lv_obj_set_event_cb(firstTimerPlayStopBtn, onFirstBtnPressed);
-  lv_obj_set_size(firstTimerPlayStopBtn, 50, 50);
-
-  //TODO: LV_ALIGN_OUT_BOTTOM_MID should center align to the bottom of the anchor item...but it doesn't actually...so i added an x-axis padding of 6
-  lv_obj_align(firstTimerPlayStopBtn, firstTimerLabel, LV_ALIGN_OUT_BOTTOM_MID, 6, 8);
-
-  firstTimerIcon = lv_label_create(firstTimerPlayStopBtn, nullptr);
-  lv_label_set_text_static(firstTimerIcon, Symbols::play); //Play icon is the first rendered
-
-  secondTimerPlayStopBtn = lv_btn_create(lv_scr_act(), nullptr);
-  secondTimerPlayStopBtn->user_data = this;
-  lv_obj_set_event_cb(secondTimerPlayStopBtn, onSecondBtnPressed);
-  lv_obj_set_size(secondTimerPlayStopBtn, 50, 50);
-
-  //TODO: LV_ALIGN_OUT_BOTTOM_MID should center align to the bottom of the anchor item...but it doesn't actually...so i added an x-axis padding of 6
-  lv_obj_align(secondTimerPlayStopBtn, secondTimerLabel, LV_ALIGN_OUT_BOTTOM_MID, 6, 8);
-
-  secondTimerIcon = lv_label_create(secondTimerPlayStopBtn, nullptr);
-  lv_label_set_text_static(secondTimerIcon, Symbols::play); //Play icon is the first rendered
-
-  resetTimer(TimerTypes::First); // Label text/icon init
+  resetTimer(TimerTypes::First);
   resetTimer(TimerTypes::Second); 
 
-  taskRefresh = lv_task_create(RefreshTaskCallback, LV_DISP_DEF_REFR_PERIOD, LV_TASK_PRIO_MID, this);
+  taskRefresh = lv_task_create(
+    RefreshTaskCallback, 
+    LV_DISP_DEF_REFR_PERIOD, 
+    LV_TASK_PRIO_MID, 
+    this
+);
 }
 
 DoubleTimer::~DoubleTimer() {
   lv_task_del(taskRefresh);
-  systemTask.PushMessage(Pinetime::System::Messages::EnableSleeping);
+  enableScreenSleeping();
   lv_obj_clean(lv_scr_act());
 }
 
-void DoubleTimer::playTimerEventHandler(TimerTypes timerType) {
-    blinkTime = xTaskGetTickCount() + blinkInterval;
-    if (timerType == TimerTypes::First) {
-        firstTimerState = TimerStates::Running;
-        lv_label_set_text_static(firstTimerIcon, Symbols::stop);
-        startFirstTimer = xTaskGetTickCount();
-    } else {
-        secondTimerState = TimerStates::Running;
-        lv_label_set_text_static(secondTimerIcon, Symbols::stop);
-        startSecondTimer = xTaskGetTickCount();
+void DoubleTimer::setupViews() {
+
+    appTitleLabel = lv_label_create(
+        lv_scr_act(), 
+        nullptr
+    );
+    lv_obj_set_style_local_text_font(
+        appTitleLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+    lv_label_set_text_fmt(
+        appTitleLabel, 
+        "DoubleTimer v%d.%d.%d", 
+        appVersionMajor, 
+        appVersionMinor, 
+        appVersionPatch
+    );
+    lv_obj_align(
+        appTitleLabel, 
+        lv_scr_act(), 
+        LV_ALIGN_IN_TOP_MID, 
+        0, 
+        0
+    );
+
+    //Label creation
+    firstTimerLabel = lv_label_create(
+        lv_scr_act(), 
+        nullptr
+    ); 
+    // Label font init
+    lv_obj_set_style_local_text_font(
+        firstTimerLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+    // Label position init (object to align, align to object, align type, x offset (if increased, it goes to the right), y offset (if increased, it goes to the bottom))
+    // https://docs.lvgl.io/master/widgets/obj.html#alignment
+    lv_obj_align(
+        firstTimerLabel, 
+        lv_scr_act(), 
+        LV_ALIGN_CENTER, 
+        -48, 
+        -32
+    ); 
+
+    secondTimerLabel = lv_label_create(
+        lv_scr_act(), 
+        nullptr
+    );
+    lv_obj_set_style_local_text_font(
+        secondTimerLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+    lv_obj_align(
+        secondTimerLabel, 
+        lv_scr_act(), 
+        LV_ALIGN_CENTER, 
+        48, 
+        -32
+    ); 
+
+    firstTimerPlayStopBtn = lv_btn_create(
+        lv_scr_act(), 
+        nullptr
+    );
+    secondTimerPlayStopBtn = lv_btn_create(
+        lv_scr_act(), 
+        nullptr
+    );
+
+    lv_obj_set_size(
+        firstTimerPlayStopBtn, 
+        50, 
+        50
+    );
+
+    //TODO: LV_ALIGN_OUT_BOTTOM_MID should center align to the bottom of the anchor item...but it doesn't actually...so i added an x-axis padding of 6
+    lv_obj_align(
+        firstTimerPlayStopBtn, 
+        firstTimerLabel, 
+        LV_ALIGN_OUT_BOTTOM_MID, 
+        6, 
+        8
+    );
+
+    firstTimerIcon = lv_label_create(
+        firstTimerPlayStopBtn, 
+        nullptr
+    );
+    //Play icon is the first rendered
+    lv_label_set_text_static(
+        firstTimerIcon, 
+        Symbols::play
+    ); 
+
+    lv_obj_set_size(secondTimerPlayStopBtn, 50, 50);
+
+    //TODO: LV_ALIGN_OUT_BOTTOM_MID should center align to the bottom of the anchor item...but it doesn't actually...so i added an x-axis padding of 6
+    lv_obj_align(
+        secondTimerPlayStopBtn, 
+        secondTimerLabel, 
+        LV_ALIGN_OUT_BOTTOM_MID, 
+        6, 
+        8
+    );
+
+    secondTimerIcon = lv_label_create(
+        secondTimerPlayStopBtn, 
+        nullptr
+    );
+    lv_label_set_text_static(
+        secondTimerIcon, 
+        Symbols::play
+    );
+}
+
+void DoubleTimer::setupBindings() {
+    firstTimerPlayStopBtn->user_data = this;
+    lv_obj_set_event_cb(
+        firstTimerPlayStopBtn, 
+        onFirstBtnPressed
+    );
+
+    secondTimerPlayStopBtn->user_data = this;
+    lv_obj_set_event_cb(
+        secondTimerPlayStopBtn, 
+        onSecondBtnPressed
+    );
+}
+
+// MARK: - UI Interaction
+
+void DoubleTimer::onFirstBtnPressed(lv_obj_t* obj, lv_event_t event) {
+    if (event != LV_EVENT_CLICKED) { 
+        return; 
     }
 
-    if (firstTimerState == TimerStates::Running || secondTimerState == TimerStates::Running) {
-        systemTask.PushMessage(Pinetime::System::Messages::DisableSleeping);
+    DoubleTimer* stopWatch = static_cast<DoubleTimer*>(obj->user_data);
+
+    if (stopWatch->getSecondTimerState() == TimerStates::Running) {
+        stopWatch->firstReactionShock();
+        return;
     }
+
+    switch (stopWatch->getFirstTimerState()) {
+        case TimerStates::Init:
+            stopWatch->playTimerEventHandler(TimerTypes::First);
+            break;
+        case TimerStates::Running:
+            stopWatch->stopTimerEventHandler(TimerTypes::First);
+            break;
+    }
+}
+
+void DoubleTimer::onSecondBtnPressed(lv_obj_t* obj, lv_event_t event) {
+    if (event != LV_EVENT_CLICKED) { 
+        return; 
+    }
+
+    DoubleTimer* stopWatch = static_cast<DoubleTimer*>(obj->user_data);
+
+    if (stopWatch->getFirstTimerState() == TimerStates::Running) {
+        stopWatch->firstReactionShock();
+        return;
+    }
+
+    switch (stopWatch->getSecondTimerState()) {
+        case TimerStates::Init:
+            stopWatch->playTimerEventHandler(TimerTypes::Second);
+            break;
+        case TimerStates::Running:
+            stopWatch->stopTimerEventHandler(TimerTypes::Second);
+            break;
+    }
+}
+
+void DoubleTimer::firstReactionShock() {
+    motorController.RunForDuration(200);
+}
+
+// to test
+bool DoubleTimer::OnButtonPushed() {
+  enableScreenSleeping();
+  return false;
+}
+
+bool DoubleTimer::OnTouchEvent(Pinetime::Applications::TouchEvents event) {
+  if(event == TouchEvents::SwipeRight) {
+    enableScreenSleeping();
+  }
+  return false;
+}
+// end
+
+// MARK: - Timer logics
+
+void DoubleTimer::playTimerEventHandler(TimerTypes timerType) {
+    blinkTime = xTaskGetTickCount() + blinkInterval;
+    switch (timerType) {
+        case TimerTypes::First:
+            firstTimerState = TimerStates::Running;
+            lv_label_set_text_static(
+                firstTimerIcon, 
+                Symbols::stop
+            );
+            startFirstTimer = xTaskGetTickCount();
+            break;
+        case TimerTypes::Second:
+            secondTimerState = TimerStates::Running;
+            lv_label_set_text_static(
+                secondTimerIcon, 
+                Symbols::stop
+            );
+            startSecondTimer = xTaskGetTickCount();
+            break;
+    }
+
+    disableScreenSleeping();
 } 
 
 void DoubleTimer::stopTimerEventHandler(TimerTypes timerType) {
     resetTimer(timerType);
-    if (firstTimerState == TimerStates::Init && secondTimerState == TimerStates::Init) {
-        systemTask.PushMessage(Pinetime::System::Messages::EnableSleeping);
-    }
-}
-
-TimerStates DoubleTimer::getFirstTimerState() {
-    return firstTimerState;
-}
-
-TimerStates DoubleTimer::getSecondTimerState() {
-    return secondTimerState;
+    enableScreenSleeping();
 }
 
 void DoubleTimer::Refresh() {
     if (firstTimerState == TimerStates::Running) {
-        updateTimer(TimerTypes::First, firstTimerLabel, startFirstTimer, stopFirstTimer, firstTimerInSeconds);
+        updateTimer(TimerTypes::First);
+        return;
     }
     
     if (secondTimerState == TimerStates::Running) {
-        updateTimer(TimerTypes::Second, secondTimerLabel, startSecondTimer, stopSecondTimer, secondTimerInSeconds);
+        updateTimer(TimerTypes::Second);
+        return;
     }
 }
 
-void DoubleTimer::updateTimer(TimerTypes timerType, lv_obj_t* label, TickType_t startTimer, TickType_t stopTimer, const int timeInSeconds) {
+void DoubleTimer::updateTimer(TimerTypes timerType) {
+
+    lv_obj_t* label = nullptr;
+    TickType_t startTimer = 0;
+    TickType_t stopTimer = 0;
+    int timeInSeconds = 0;
+
+    switch (timerType) {
+        case TimerTypes::First:
+            label = firstTimerLabel;
+            startTimer = startFirstTimer;
+            stopTimer = stopFirstTimer;
+            timeInSeconds = firstTimerInSeconds;
+            break;
+        case TimerTypes::Second:
+            label = secondTimerLabel;
+            startTimer = startSecondTimer;
+            stopTimer = stopSecondTimer;
+            timeInSeconds = secondTimerInSeconds;
+            break;
+        default:
+            return;
+    }
+
     const TickType_t currentTime = xTaskGetTickCount();
     stopTimer = (currentTime - startTimer) & 0XFFFFFFFF;
     DoubleTimer::Time times = convertTicksToTimeSegments(stopTimer);
@@ -163,27 +328,82 @@ void DoubleTimer::updateTimer(TimerTypes timerType, lv_obj_t* label, TickType_t 
             lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_RED);
             //The timer is expired, activate a long vibration
             motorController.RunForDuration(180);
-            if (timerType == TimerTypes::First) {
-                firstTimerState = TimerStates::Expired;
-            } else {
-                secondTimerState = TimerStates::Expired;
+
+            switch (timerType) {
+                case TimerTypes::First:
+                    firstTimerState = TimerStates::Init;
+                    break;
+                case TimerTypes::Second:
+                    secondTimerState = TimerStates::Init;
+                    break;
             }
         } else {
             resetTimer(timerType);
+            enableScreenSleeping();
         }
     }
 }
 
 void DoubleTimer::resetTimer(TimerTypes timerType) {
-    if (timerType == TimerTypes::First) {
-        lv_label_set_text_static(firstTimerIcon, Symbols::play);
-        lv_label_set_text_fmt(firstTimerLabel, "%02d:%02d", firstTimerMinutes, firstTimerSeconds);
-        lv_obj_set_style_local_text_color(firstTimerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE); // Label color init
-        firstTimerState = TimerStates::Init;
-    } else {
-        lv_label_set_text_static(secondTimerIcon, Symbols::play);
-        lv_label_set_text_fmt(secondTimerLabel, "%02d:%02d", secondTimerMinutes, secondTimerSeconds);
-        lv_obj_set_style_local_text_color(secondTimerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE); 
-        secondTimerState = TimerStates::Init;
+    lv_obj_t* timerIcon = nullptr;
+    lv_obj_t* timerLabel = nullptr;
+    int timerMinutes = 0, timerSeconds = 0;
+    TimerStates* timerState = nullptr;
+
+    switch (timerType)
+    {
+    case TimerTypes::First:
+        timerIcon = firstTimerIcon;
+        timerLabel = firstTimerLabel;
+        timerMinutes = firstTimerMinutes;
+        timerSeconds = firstTimerSeconds;
+        timerState = &firstTimerState;
+        break;
+    
+    case TimerTypes::Second:
+        timerIcon = secondTimerIcon;
+        timerLabel = secondTimerLabel;
+        timerMinutes = secondTimerMinutes;
+        timerSeconds = secondTimerSeconds;
+        timerState = &secondTimerState;
+        break;
+    default:
+        return;
     }
+
+    lv_label_set_text_static(timerIcon, Symbols::play);
+    lv_label_set_text_fmt(timerLabel, "%02d:%02d", timerMinutes, timerSeconds);
+    lv_obj_set_style_local_text_color(timerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE); 
+    *timerState = TimerStates::Init;
+}
+
+// MARK: - Helpers / Utils
+
+DoubleTimer::Time DoubleTimer::convertTicksToTimeSegments(const TickType_t timeElapsed) {
+    const int timeElapsedCentis = timeElapsed * 100 / configTICK_RATE_HZ;
+
+    const int ms = (timeElapsedCentis % 100);
+    const int secs = (timeElapsedCentis / 100) % 60;
+    const int mins = (timeElapsedCentis / 100) / 60;
+    return DoubleTimer::Time {mins, secs, ms};
+}
+
+TimerStates DoubleTimer::getFirstTimerState() {
+    return firstTimerState;
+}
+
+TimerStates DoubleTimer::getSecondTimerState() {
+    return secondTimerState;
+}
+
+bool DoubleTimer::isTimerActive() {
+    return firstTimerState == TimerStates::Running || secondTimerState == TimerStates::Running;
+}
+
+void DoubleTimer::enableScreenSleeping() {
+    systemTask.PushMessage(Pinetime::System::Messages::EnableSleeping);
+}
+
+void DoubleTimer::disableScreenSleeping() {
+    systemTask.PushMessage(Pinetime::System::Messages::DisableSleeping);
 }
