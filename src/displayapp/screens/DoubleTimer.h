@@ -1,12 +1,11 @@
 #pragma once
 
 #include "displayapp/screens/Screen.h"
+#include "Symbols.h"
 #include <lvgl/lvgl.h>
 #include <FreeRTOS.h>
-#include "portmacro_cmsis.h"
 #include "systemtask/SystemTask.h"
 #include "components/motor/MotorController.h"
-#include "Symbols.h"
 
 namespace Pinetime {
   namespace Applications {
@@ -18,7 +17,10 @@ namespace Pinetime {
       class DoubleTimer : public Screen {
       public:
 
-        DoubleTimer(Controllers::MotorController& motorController, System::SystemTask& systemTask);
+        DoubleTimer(
+          Controllers::MotorController& motorController, 
+          System::SystemTask& systemTask
+        );
         ~DoubleTimer() override;
         void Refresh() override;
 
@@ -52,6 +54,7 @@ namespace Pinetime {
 
         void enableScreenSleeping();
         void disableScreenSleeping();
+        void prepareAppToExit();
 
       private:
         Pinetime::Controllers::MotorController& motorController;
@@ -81,6 +84,8 @@ namespace Pinetime {
         TickType_t stopSecondTimer;
 
         TickType_t blinkTime = 0;
+
+        bool isExiting = false;
       };
     }	
 
@@ -90,7 +95,10 @@ namespace Pinetime {
       static constexpr const char* icon = Screens::Symbols::stopWatch;
 
       static Screens::Screen* Create(AppControllers& controllers) {
-        return new Screens::DoubleTimer(controllers.motorController, *controllers.systemTask);
+        return new Screens::DoubleTimer(
+          controllers.motorController, 
+          *controllers.systemTask
+        );
       };
 
       static bool IsAvailable(Pinetime::Controllers::FS& /*filesystem*/) {

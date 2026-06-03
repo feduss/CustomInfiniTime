@@ -24,13 +24,11 @@ DoubleTimer::DoubleTimer(
     LV_DISP_DEF_REFR_PERIOD, 
     LV_TASK_PRIO_MID, 
     this
-);
+  );
 }
 
 DoubleTimer::~DoubleTimer() {
-  lv_task_del(taskRefresh);
-  enableScreenSleeping();
-  lv_obj_clean(lv_scr_act());
+    prepareAppToExit();
 }
 
 void DoubleTimer::setupViews() {
@@ -221,13 +219,13 @@ void DoubleTimer::firstReactionShock() {
 
 // to test
 bool DoubleTimer::OnButtonPushed() {
-  enableScreenSleeping();
+  prepareAppToExit();
   return false;
 }
 
 bool DoubleTimer::OnTouchEvent(Pinetime::Applications::TouchEvents event) {
   if(event == TouchEvents::SwipeRight) {
-    enableScreenSleeping();
+    prepareAppToExit();
   }
   return false;
 }
@@ -406,4 +404,15 @@ void DoubleTimer::enableScreenSleeping() {
 
 void DoubleTimer::disableScreenSleeping() {
     systemTask.PushMessage(Pinetime::System::Messages::DisableSleeping);
+}
+
+void DoubleTimer::prepareAppToExit() {
+    if (isExiting) { return; }
+    isExiting = true;
+    printf("\n[DoubleTimer] prepareAppToExit() - cleaning up");
+    enableScreenSleeping();
+    resetTimer(TimerTypes::First);
+    resetTimer(TimerTypes::Second);
+    lv_task_del(taskRefresh);
+    lv_obj_clean(lv_scr_act());
 }
