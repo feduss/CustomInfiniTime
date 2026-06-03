@@ -16,6 +16,7 @@
 #include "displayapp/screens/WatchFaceTerminal.h"
 #include "displayapp/screens/WatchFacePrideFlag.h"
 #include "displayapp/screens/DoubleTimer.h"
+#include "displayapp/screens/RunTracker.h"
 
 namespace Pinetime {
   namespace Applications {
