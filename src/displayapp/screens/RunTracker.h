@@ -97,7 +97,7 @@ namespace Pinetime {
         lv_obj_t *heartRateTitleLabel, *heartRateValueLabel;
         
         const int appVersionMajor = 0;
-        const int appVersionMinor = 1;
+        const int appVersionMinor = 3;
         const int appVersionPatch = 0;
 
         const char* appTitle = "RunTracker";

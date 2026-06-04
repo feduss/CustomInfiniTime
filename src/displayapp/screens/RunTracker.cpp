@@ -878,7 +878,13 @@ std::string formatPace(uint32_t sec) {
   uint32_t s = sec % 60;
 
   char buf[16];
-  std::snprintf(buf, sizeof(buf), "%u'%02u\"", m, s);
+  std::snprintf(
+    buf,
+    sizeof(buf),
+    "%lu'%02lu\"",
+    static_cast<unsigned long>(m),
+    static_cast<unsigned long>(s)
+  );
   return std::string(buf);
 }
 
