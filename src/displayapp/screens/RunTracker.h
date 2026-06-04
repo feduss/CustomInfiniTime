@@ -10,6 +10,7 @@
 namespace Pinetime {
   namespace Controllers {
     class HeartRateController;
+    class MotionController;
   }
 
   namespace Applications {
@@ -18,7 +19,8 @@ namespace Pinetime {
       public:
         RunTracker(
           Controllers::StopWatchController& stopWatchController,
-          Controllers::HeartRateController& HeartRateController, 
+          Controllers::HeartRateController& heartRateController,
+          Controllers::MotionController& motionController,
           System::SystemTask& systemTask
         );
         ~RunTracker() override;
@@ -49,8 +51,8 @@ namespace Pinetime {
         static void PlayButtonEventHandler(lv_obj_t* obj, lv_event_t event);
         static void StopButtonEventHandler(lv_obj_t* obj, lv_event_t event);
 
-        void OnStartEvent(lv_event_t event);
-        void OnStopEvent(lv_event_t event);
+        void OnStartEvent();
+        void OnStopEvent();
 
         void UpdateTime();
         void UpdateDistance();
@@ -68,8 +70,11 @@ namespace Pinetime {
       private:
         Controllers::StopWatchController& stopWatchController;
         Controllers::HeartRateController& heartRateController;
+        Controllers::MotionController& motionController;
         Pinetime::System::SystemTask& systemTask;
         Pinetime::System::WakeLock wakeLock;
+
+        uint32_t runStartTripSteps = 0;
 
         lv_obj_t *appTitleLabel;
         lv_obj_t *playButton, *stopButton;
@@ -107,7 +112,8 @@ namespace Pinetime {
       static Screens::Screen* Create(AppControllers& controllers) {
         return new Screens::RunTracker(
           controllers.stopWatchController,
-          controllers.heartRateController, 
+          controllers.heartRateController,
+          controllers.motionController,
           *controllers.systemTask
         );
       };

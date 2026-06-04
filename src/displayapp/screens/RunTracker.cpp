@@ -1,6 +1,7 @@
 #include "displayapp/screens/StopWatch.h"
 #include "displayapp/screens/RunTracker.h"
 #include <components/heartrate/HeartRateController.h>
+#include <components/motion/MotionController.h>
 #include "displayapp/screens/Symbols.h"
 
 using namespace Pinetime::Applications::Screens;
@@ -17,64 +18,14 @@ namespace {
     const uint16_t hours = (timeElapsedSecs / 60) / 60;
     return TimeSeparated {hours, mins, secs, hundredths, timeElapsedSecs};
   }
-
-  const char* ToString(Pinetime::Controllers::HeartRateController::States s) {
-    switch (s) {
-      case Pinetime::Controllers::HeartRateController::States::NotEnoughData:
-        return "Not enough data,\nplease wait...";
-      case Pinetime::Controllers::HeartRateController::States::NoTouch:
-        return "No touch detected";
-      case Pinetime::Controllers::HeartRateController::States::Running:
-        return "Measuring...";
-      case Pinetime::Controllers::HeartRateController::States::Stopped:
-        return "Stopped";
-    }
-    return "";
-  }
 }
 
 RunTracker::RunTracker(
   Controllers::StopWatchController& stopWatchController,
   Controllers::HeartRateController& heartRateController, 
+  Controllers::MotionController& motionController,
   System::SystemTask& systemTask
-) : stopWatchController {stopWatchController}, heartRateController {heartRateController}, systemTask {systemTask}, wakeLock(systemTask) {
-  /*bool isHrRunning = heartRateController.State() != Controllers::HeartRateController::States::Stopped;
-  label_hr = lv_label_create(lv_scr_act(), nullptr);
-
-  lv_obj_set_style_local_text_font(label_hr, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &jetbrains_mono_76);
-
-  if (isHrRunning) {
-    lv_obj_set_style_local_text_color(label_hr, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, Colors::highlight);
-  } else {
-    lv_obj_set_style_local_text_color(label_hr, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, Colors::lightGray);
-  }
-
-  lv_label_set_text_static(label_hr, "---");
-  lv_obj_align(label_hr, nullptr, LV_ALIGN_CENTER, 0, -40);
-
-  label_bpm = lv_label_create(lv_scr_act(), nullptr);
-  lv_label_set_text_static(label_bpm, "Heart rate BPM");
-  lv_obj_align(label_bpm, label_hr, LV_ALIGN_OUT_TOP_MID, 0, -20);
-
-  label_status = lv_label_create(lv_scr_act(), nullptr);
-  lv_obj_set_style_local_text_color(label_status, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_GRAY);
-  lv_label_set_text_static(label_status, ToString(Pinetime::Controllers::HeartRateController::States::NotEnoughData));
-
-  lv_obj_align(label_status, label_hr, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
-
-  btn_startStop = lv_btn_create(lv_scr_act(), nullptr);
-  btn_startStop->user_data = this;
-  lv_obj_set_height(btn_startStop, 50);
-  lv_obj_set_event_cb(btn_startStop, btnStartStopEventHandler);
-  lv_obj_align(btn_startStop, nullptr, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
-
-  label_startStop = lv_label_create(btn_startStop, nullptr);
-  UpdateStartStopButton(isHrRunning);
-  if (isHrRunning) {
-    wakeLock.Lock();
-  }
-
-  ;*/
+) : stopWatchController {stopWatchController}, heartRateController {heartRateController}, motionController {motionController}, systemTask {systemTask}, wakeLock(systemTask) {
   SetupViews();
   SetupBindings();
 }
@@ -433,16 +384,22 @@ void RunTracker::Refresh() {
 }
 
 void RunTracker::PlayButtonEventHandler(lv_obj_t* obj, lv_event_t event) {
+  if (event != LV_EVENT_CLICKED) { 
+      return; 
+  }
   RunTracker* screen = static_cast<RunTracker*>(obj->user_data);
-  screen->OnStartEvent(event);
+  screen->OnStartEvent();
 }
 
 void RunTracker::StopButtonEventHandler(lv_obj_t* obj, lv_event_t event) {
+  if (event != LV_EVENT_CLICKED) { 
+      return; 
+  }
   RunTracker* screen = static_cast<RunTracker*>(obj->user_data);
-  screen->OnStopEvent(event);
+  screen->OnStopEvent();
 }
 
-void RunTracker::OnStartEvent(lv_event_t event) {
+void RunTracker::OnStartEvent() {
 
   isTracking = true;
 
@@ -465,6 +422,8 @@ void RunTracker::OnStartEvent(lv_event_t event) {
   SetObjectVisibility(stopButton, true);
   SetObjectVisibility(stopButtonIcon, true);
 
+  runStartTripSteps = motionController.GetTripSteps();
+
   UpdateTime();
   UpdateDistance();
   UpdateSpeed();
@@ -484,7 +443,7 @@ void RunTracker::OnStartEvent(lv_event_t event) {
   
 }
 
-void RunTracker::OnStopEvent(lv_event_t event) {
+void RunTracker::OnStopEvent() {
 
   isTracking = false;
 
@@ -529,23 +488,6 @@ bool RunTracker::OnTouchEvent(Pinetime::Applications::TouchEvents event) {
 }
 // end
 
-//TODO: to edit
-/*void RunTracker::OnStartStopEvent(lv_event_t event) {
-  if (event == LV_EVENT_CLICKED) {
-    if (heartRateController.State() == Controllers::HeartRateController::States::Stopped) {
-      heartRateController.Enable();
-      UpdateStartStopButton(heartRateController.State() != Controllers::HeartRateController::States::Stopped);
-      wakeLock.Lock();
-      lv_obj_set_style_local_text_color(label_hr, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, Colors::highlight);
-    } else {
-      heartRateController.Disable();
-      UpdateStartStopButton(heartRateController.State() != Controllers::HeartRateController::States::Stopped);
-      wakeLock.Release();
-      lv_obj_set_style_local_text_color(label_hr, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, Colors::lightGray);
-    }
-  }
-}*/
-
 void RunTracker::UpdateTime() {
 
   if (isTracking) {
@@ -579,7 +521,7 @@ void RunTracker::UpdateTime() {
 
 void RunTracker::UpdateHeartRate() {
 
-  if (IsTracking()) {
+  if (isTracking) {
 
     auto state = heartRateController.State();
     switch (state) {
@@ -617,7 +559,19 @@ void RunTracker::UpdateHeartRate() {
 void RunTracker::UpdateDistance() {
 
   if (isTracking) {
-    
+    const uint32_t currentTripSteps = motionController.GetTripSteps();
+    const uint32_t runSteps = currentTripSteps >= runStartTripSteps ? currentTripSteps - runStartTripSteps : 0;
+    const uint32_t distanceCentimeters = runSteps * 78u; // average stride estimate
+
+    const uint32_t kilometers = distanceCentimeters / 100000u;
+    const uint32_t hectometers = (distanceCentimeters % 100000u) / 1000u;
+
+    lv_label_set_text_fmt(
+        distanceValueLabel,
+        "%u.%02u km",
+        kilometers,
+        hectometers
+    );
   } else {
     lv_label_set_text_static(
         distanceValueLabel, 
@@ -637,7 +591,28 @@ void RunTracker::UpdateDistance() {
 void RunTracker::UpdateSpeed() {
 
   if (isTracking) {
+    const uint32_t currentTripSteps = motionController.GetTripSteps();
+    const uint32_t runSteps = currentTripSteps >= runStartTripSteps ? currentTripSteps - runStartTripSteps : 0;
+    const uint32_t distanceCentimeters = runSteps * 78u;
+    const uint32_t elapsedSeconds = stopWatchController.GetElapsedTime() / configTICK_RATE_HZ;
 
+    uint32_t paceMinutes = 0;
+    uint32_t paceSeconds = 0;
+    if (distanceCentimeters > 0) {
+      const uint32_t distanceKilometers = distanceCentimeters / 100000u;
+      if (distanceKilometers > 0) {
+        const uint32_t paceSecondsPerKm = elapsedSeconds / distanceKilometers;
+        paceMinutes = paceSecondsPerKm / 60u;
+        paceSeconds = paceSecondsPerKm % 60u;
+      }
+    }
+
+    lv_label_set_text_fmt(
+        speedValueLabel,
+        "%u'%02u\"/km",
+        paceMinutes,
+        paceSeconds
+    );
   } else {
     lv_label_set_text_static(
         speedValueLabel, 
@@ -674,6 +649,8 @@ void RunTracker::PrepareAppToExit() {
     isExiting = true;
     printf("\n[DoubleTimer] prepareAppToExit() - cleaning up");
     CleanObjects();
+    lv_task_del(taskRefresh);
+    lv_obj_clean(lv_scr_act());
 }
 
 void RunTracker::CleanObjects() {
@@ -681,6 +658,4 @@ void RunTracker::CleanObjects() {
     stopWatchController.Clear();
     heartRateController.Disable();
     wakeLock.Release();
-    lv_task_del(taskRefresh);
-    lv_obj_clean(lv_scr_act());
 }
