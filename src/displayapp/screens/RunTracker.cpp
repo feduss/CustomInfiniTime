@@ -3,6 +3,8 @@
 #include <components/heartrate/HeartRateController.h>
 #include <components/motion/MotionController.h>
 #include "displayapp/screens/Symbols.h"
+#include "RunTracker.h"
+#include <numeric>
 
 using namespace Pinetime::Applications::Screens;
 
@@ -26,7 +28,7 @@ RunTracker::RunTracker(
   Controllers::MotionController& motionController,
   System::SystemTask& systemTask
 ) : stopWatchController {stopWatchController}, heartRateController {heartRateController}, motionController {motionController}, systemTask {systemTask}, wakeLock(systemTask) {
-  SetupViews();
+  SetupViews(true);
   SetupBindings();
 }
 
@@ -35,24 +37,29 @@ RunTracker::~RunTracker() {
   lv_obj_clean(lv_scr_act());
 }
 
-void RunTracker::SetupViews() {
+void RunTracker::SetupViews(bool isFirstTime) {
 
-  SetupAppTitle();
+  if (isFirstTime) {
+    SetupAppTitle();
+  }
 
-  SetupTimeTitleLabel();
-  SetupTimeValueLabel();
+  SetupTimeTitleLabel(isFirstTime);
+  SetupTimeValueLabel(isFirstTime);
 
-  SetupDistanceTitleLabel();
-  SetupDistanceValueLabel();
+  SetupDistanceTitleLabel(isFirstTime);
+  SetupDistanceValueLabel(isFirstTime);
 
-  SetupSpeedTitleLabel();
-  SetupSpeedValueLabel();
+  SetupSpeedTitleLabel(isFirstTime);
+  SetupSpeedValueLabel(isFirstTime);
 
-  SetupHeartRateTitleLabel();
-  SetupHeartRateValueLabel();
+  SetupHeartRateTitleLabel(isFirstTime);
+  SetupHeartRateValueLabel(isFirstTime);
 
-  SetupPlayButton();
-  SetupStopButton();
+  if (isFirstTime) {
+    SetupPlayButton();
+    SetupStopButton();
+    SetupCloseButton();
+  }
 }
 
 void RunTracker::SetupAppTitle() {
@@ -153,17 +160,57 @@ void RunTracker::SetupStopButton() {
   SetObjectVisibility(stopButtonIcon, false);
 }
 
-void RunTracker::SetupTimeTitleLabel() {
-  timeTitleLabel = lv_label_create(
+void RunTracker::SetupCloseButton() {
+  closeButton = lv_btn_create(
       lv_scr_act(), 
       nullptr
   );
-  lv_obj_set_style_local_text_font(
+
+  lv_obj_set_size(
+      closeButton, 
+      50, 
+      50
+  );
+
+  lv_obj_align(
+      closeButton, 
+      lv_scr_act(), 
+      LV_ALIGN_IN_BOTTOM_MID, 
+      0, 
+      -16
+  );
+
+  closeButtonIcon = lv_label_create(
+      closeButton, 
+      nullptr
+  );
+
+  lv_label_set_text_static(
+      closeButtonIcon, 
+      Symbols::stop
+  ); 
+
+  SetObjectVisibility(closeButton, false);
+  SetObjectVisibility(closeButtonIcon, false);
+}
+
+void RunTracker::SetupTimeTitleLabel(bool isFirstTime) {
+  
+  if (isFirstTime) {
+    timeTitleLabel = lv_label_create(
+      lv_scr_act(), 
+      nullptr
+    );
+    lv_obj_set_style_local_text_font(
       timeTitleLabel, 
       LV_LABEL_PART_MAIN, 
       LV_STATE_DEFAULT, 
       &jetbrains_mono_bold_20
-  );
+    );
+
+    SetObjectVisibility(timeTitleLabel, false);
+  }
+
   lv_label_set_text_static(
       timeTitleLabel, 
       timeTitleText
@@ -175,21 +222,24 @@ void RunTracker::SetupTimeTitleLabel() {
       32, 
       16
   );
-
-  SetObjectVisibility(timeTitleLabel, false);
 }
 
-void RunTracker::SetupTimeValueLabel() {
-  timeValueLabel = lv_label_create(
+void RunTracker::SetupTimeValueLabel(bool isFirstTime) {
+  if (isFirstTime) {
+    timeValueLabel = lv_label_create(
       lv_scr_act(), 
       nullptr
-  );
-  lv_obj_set_style_local_text_font(
+    );
+    lv_obj_set_style_local_text_font(
       timeValueLabel, 
       LV_LABEL_PART_MAIN, 
       LV_STATE_DEFAULT, 
       &jetbrains_mono_bold_20
-  );
+    );
+
+    SetObjectVisibility(timeValueLabel, false);
+  }
+  
   lv_label_set_text_static(
       timeValueLabel, 
       "-"
@@ -202,20 +252,23 @@ void RunTracker::SetupTimeValueLabel() {
       8
   );
 
-  SetObjectVisibility(timeValueLabel, false);
 }
 
-void RunTracker::SetupDistanceTitleLabel() {
-  distanceTitleLabel = lv_label_create(
+void RunTracker::SetupDistanceTitleLabel(bool isFirstTime) {
+  if (isFirstTime) {
+    distanceTitleLabel = lv_label_create(
       lv_scr_act(), 
       nullptr
-  );
-  lv_obj_set_style_local_text_font(
-      distanceTitleLabel, 
-      LV_LABEL_PART_MAIN, 
-      LV_STATE_DEFAULT, 
-      &jetbrains_mono_bold_20
-  );
+    );
+    lv_obj_set_style_local_text_font(
+        distanceTitleLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+
+    SetObjectVisibility(distanceTitleLabel, false);
+  }
   lv_label_set_text_static(
       distanceTitleLabel, 
       distanceTitleText
@@ -227,21 +280,23 @@ void RunTracker::SetupDistanceTitleLabel() {
       -32, 
       16
   );
-
-  SetObjectVisibility(distanceTitleLabel, false);
 }
 
-void RunTracker::SetupDistanceValueLabel() {
-  distanceValueLabel = lv_label_create(
+void RunTracker::SetupDistanceValueLabel(bool isFirstTime) {
+  if (isFirstTime) {
+    distanceValueLabel = lv_label_create(
       lv_scr_act(), 
       nullptr
-  );
-  lv_obj_set_style_local_text_font(
-      distanceValueLabel, 
-      LV_LABEL_PART_MAIN, 
-      LV_STATE_DEFAULT, 
-      &jetbrains_mono_bold_20
-  );
+    );
+    lv_obj_set_style_local_text_font(
+        distanceValueLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+
+    SetObjectVisibility(distanceValueLabel, false);
+  }
   lv_label_set_text_static(
       distanceValueLabel, 
       "-"
@@ -253,21 +308,23 @@ void RunTracker::SetupDistanceValueLabel() {
       0, 
       8
   );
-
-  SetObjectVisibility(distanceValueLabel, false);
 }
 
-void RunTracker::SetupSpeedTitleLabel() {
-  speedTitleLabel = lv_label_create(
+void RunTracker::SetupSpeedTitleLabel(bool isFirstTime) {
+  if (isFirstTime) {
+    speedTitleLabel = lv_label_create(
       lv_scr_act(), 
       nullptr
-  );
-  lv_obj_set_style_local_text_font(
-      speedTitleLabel, 
-      LV_LABEL_PART_MAIN, 
-      LV_STATE_DEFAULT, 
-      &jetbrains_mono_bold_20
-  );
+    );
+    lv_obj_set_style_local_text_font(
+        speedTitleLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+
+    SetObjectVisibility(speedTitleLabel, false);
+  }
   lv_label_set_text_static(
       speedTitleLabel, 
       speedTitleText
@@ -279,21 +336,23 @@ void RunTracker::SetupSpeedTitleLabel() {
       0, 
       16
   );
-
-  SetObjectVisibility(speedTitleLabel, false);
 }
 
-void RunTracker::SetupSpeedValueLabel() {
-  speedValueLabel = lv_label_create(
+void RunTracker::SetupSpeedValueLabel(bool isFirstTime) {
+  if (isFirstTime) {
+    speedValueLabel = lv_label_create(
       lv_scr_act(), 
       nullptr
-  );
-  lv_obj_set_style_local_text_font(
-      speedValueLabel, 
-      LV_LABEL_PART_MAIN, 
-      LV_STATE_DEFAULT, 
-      &jetbrains_mono_bold_20
-  );
+    );
+    lv_obj_set_style_local_text_font(
+        speedValueLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+
+    SetObjectVisibility(speedValueLabel, false);
+  }
   lv_label_set_text_static(
       speedValueLabel, 
       "-"
@@ -305,21 +364,23 @@ void RunTracker::SetupSpeedValueLabel() {
       0, 
       8
   );
-
-  SetObjectVisibility(speedValueLabel, false);
 }
 
-void RunTracker::SetupHeartRateTitleLabel() {
-  heartRateTitleLabel = lv_label_create(
+void RunTracker::SetupHeartRateTitleLabel(bool isFirstTime) {
+  if (isFirstTime) {
+    heartRateTitleLabel = lv_label_create(
       lv_scr_act(), 
       nullptr
-  );
-  lv_obj_set_style_local_text_font(
-      heartRateTitleLabel, 
-      LV_LABEL_PART_MAIN, 
-      LV_STATE_DEFAULT, 
-      &jetbrains_mono_bold_20
-  );
+    );
+    lv_obj_set_style_local_text_font(
+        heartRateTitleLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+
+    SetObjectVisibility(heartRateTitleLabel, false);
+  }
   lv_label_set_text_static(
       heartRateTitleLabel, 
       heartRateTitleText
@@ -331,21 +392,23 @@ void RunTracker::SetupHeartRateTitleLabel() {
       0, 
       16
   );
-
-  SetObjectVisibility(heartRateTitleLabel, false);
 }
 
-void RunTracker::SetupHeartRateValueLabel() {
-  heartRateValueLabel = lv_label_create(
+void RunTracker::SetupHeartRateValueLabel(bool isFirstTime) {
+  if (isFirstTime) {
+    heartRateValueLabel = lv_label_create(
       lv_scr_act(), 
       nullptr
-  );
-  lv_obj_set_style_local_text_font(
-      heartRateValueLabel, 
-      LV_LABEL_PART_MAIN, 
-      LV_STATE_DEFAULT, 
-      &jetbrains_mono_bold_20
-  );
+    );
+    lv_obj_set_style_local_text_font(
+        heartRateValueLabel, 
+        LV_LABEL_PART_MAIN, 
+        LV_STATE_DEFAULT, 
+        &jetbrains_mono_bold_20
+    );
+
+    SetObjectVisibility(heartRateValueLabel, false);
+  }
   lv_label_set_text_static(
       heartRateValueLabel, 
       "-"
@@ -357,8 +420,6 @@ void RunTracker::SetupHeartRateValueLabel() {
       0, 
       8
   );
-
-  SetObjectVisibility(heartRateValueLabel, false);
 }
 
 void RunTracker::SetupBindings() {
@@ -368,6 +429,9 @@ void RunTracker::SetupBindings() {
   
   stopButton->user_data = this;
   lv_obj_set_event_cb(stopButton, StopButtonEventHandler);
+
+  closeButton->user_data = this;
+  lv_obj_set_event_cb(closeButton, CloseButtonEventHandler);
 }
 
 void RunTracker::Refresh() {
@@ -397,6 +461,14 @@ void RunTracker::StopButtonEventHandler(lv_obj_t* obj, lv_event_t event) {
   }
   RunTracker* screen = static_cast<RunTracker*>(obj->user_data);
   screen->OnStopEvent();
+}
+
+void RunTracker::CloseButtonEventHandler(lv_obj_t* obj, lv_event_t event) {
+  if (event != LV_EVENT_CLICKED) { 
+      return; 
+  }
+  RunTracker* screen = static_cast<RunTracker*>(obj->user_data);
+  screen->OnCloseEvent();
 }
 
 void RunTracker::OnStartEvent() {
@@ -447,6 +519,133 @@ void RunTracker::OnStopEvent() {
 
   isTracking = false;
 
+  SetTimeReportLabels();
+  SetDistanceReportLabels();
+  SetSpeedReportLabels();
+  SetHeartRateReportLabels();
+
+  SetObjectVisibility(stopButton, false);
+  SetObjectVisibility(closeButton, true);
+
+  CleanObjects();
+}
+
+void RunTracker::SetTimeReportLabels() {
+  lv_label_set_text_static(
+    timeTitleLabel, 
+    timeReportTitleText
+  );
+  lv_obj_align(
+    timeTitleLabel, 
+    lv_scr_act(), 
+    LV_ALIGN_IN_TOP_LEFT, 
+    8, 
+    8
+  );
+
+  lv_label_set_text(
+    timeValueLabel, 
+    timeBuffer
+  );
+
+  lv_obj_align(
+    timeValueLabel, 
+    timeTitleLabel, 
+    LV_ALIGN_OUT_RIGHT_MID, 
+    8, 
+    0
+  );
+}
+
+void RunTracker::SetDistanceReportLabels() {
+  lv_label_set_text_static(
+      distanceTitleLabel, 
+      distanceReportTitleText
+  );
+  lv_obj_align(
+      distanceTitleLabel,  
+      timeTitleLabel, 
+      LV_ALIGN_OUT_BOTTOM_LEFT,
+      0, 
+      8
+  );
+
+  const uint32_t kilometers = distanceCm / 100000u;
+  const uint32_t hectometers = (distanceCm % 100000u) / 1000u;
+
+  lv_label_set_text_fmt(
+      distanceValueLabel,
+      "%u.%02u km",
+      kilometers,
+      hectometers
+  );
+
+  lv_obj_align(
+      distanceValueLabel, 
+      distanceTitleLabel, 
+      LV_ALIGN_OUT_RIGHT_MID, 
+      8, 
+      0
+  );
+}
+
+void RunTracker::SetSpeedReportLabels() {
+  lv_label_set_text_static(
+      speedTitleLabel, 
+      speedReportTitleText
+  );
+  lv_obj_align(
+      speedTitleLabel,  
+      distanceTitleLabel, 
+      LV_ALIGN_OUT_BOTTOM_LEFT,
+      0, 
+      8
+  );
+
+  std::string paceSummary = computePaceSummary(speedValues);
+  lv_label_set_text(
+    speedValueLabel, 
+    paceSummary.c_str()
+  );
+
+  lv_obj_align(
+      speedValueLabel, 
+      speedTitleLabel, 
+      LV_ALIGN_OUT_BOTTOM_LEFT, 
+      0, 
+      0
+  );
+}
+
+void RunTracker::SetHeartRateReportLabels() {
+  lv_label_set_text_static(
+      heartRateTitleLabel, 
+      heartRateReportTitleText
+  );
+  lv_obj_align(
+      heartRateTitleLabel,  
+      speedValueLabel, 
+      LV_ALIGN_OUT_BOTTOM_LEFT,
+      0, 
+      8
+  );
+
+  std::string heartRateSummary = computeHeartRateSummary(heartRateValues);
+  lv_label_set_text(
+    heartRateValueLabel, 
+    heartRateSummary.c_str()
+  );
+
+  lv_obj_align(
+      heartRateValueLabel, 
+      heartRateTitleLabel, 
+      LV_ALIGN_OUT_BOTTOM_LEFT, 
+      0, 
+      0
+  );
+}
+
+void RunTracker::OnCloseEvent() {
   SetObjectVisibility(appTitleLabel, true);
   SetObjectVisibility(playButton, true);
   SetObjectVisibility(playButtonIcon, true);
@@ -463,15 +662,15 @@ void RunTracker::OnStopEvent() {
   SetObjectVisibility(heartRateTitleLabel, false);
   SetObjectVisibility(heartRateValueLabel, false);
 
-  SetObjectVisibility(stopButton, false);
-  SetObjectVisibility(stopButtonIcon, false);
+  SetObjectVisibility(closeButton, false);
+  SetObjectVisibility(closeButtonIcon, false);
+
+  SetupViews(false);
 
   UpdateTime();
   UpdateDistance();
   UpdateSpeed();
   UpdateHeartRate();
-
-  CleanObjects();
 }
 
 // to test
@@ -496,12 +695,16 @@ void RunTracker::UpdateTime() {
     renderedSeconds = elapsedTime.epochSecs;
 
     if (renderedSeconds.IsUpdated()) {
-      lv_label_set_text_fmt(
-        timeValueLabel, "%02d:%02d:%02d", 
-        elapsedTime.hours, 
-        elapsedTime.mins, 
+      snprintf(
+        timeBuffer, 
+        sizeof(timeBuffer), 
+        "%02d:%02d:%02d",
+        elapsedTime.hours,
+        elapsedTime.mins,
         elapsedTime.secs
       );
+
+      lv_label_set_text(timeValueLabel, timeBuffer);
     }
   } else {
     lv_label_set_text_static(
@@ -537,7 +740,9 @@ void RunTracker::UpdateHeartRate() {
         if (heartRateController.HeartRate() == 0) {
           lv_label_set_text_static(heartRateValueLabel, "Dead");
         } else {
-          lv_label_set_text_fmt(heartRateValueLabel, "%03d bpm", heartRateController.HeartRate());
+          uint8_t heartRate = heartRateController.HeartRate();
+          heartRateValues.push_back(heartRate);
+          lv_label_set_text_fmt(heartRateValueLabel, "%03d bpm", heartRate);
         }
     }
   } else {
@@ -559,12 +764,15 @@ void RunTracker::UpdateHeartRate() {
 void RunTracker::UpdateDistance() {
 
   if (isTracking) {
+
     const uint32_t currentTripSteps = motionController.GetTripSteps();
     const uint32_t runSteps = currentTripSteps >= runStartTripSteps ? currentTripSteps - runStartTripSteps : 0;
-    const uint32_t distanceCentimeters = runSteps * 78u; // average stride estimate
+    const uint32_t distanceCentimeters = runSteps * strideLengthCm; // average stride estimate
 
     const uint32_t kilometers = distanceCentimeters / 100000u;
     const uint32_t hectometers = (distanceCentimeters % 100000u) / 1000u;
+
+    distanceCm = distanceCentimeters;
 
     lv_label_set_text_fmt(
         distanceValueLabel,
@@ -591,9 +799,10 @@ void RunTracker::UpdateDistance() {
 void RunTracker::UpdateSpeed() {
 
   if (isTracking) {
+
     const uint32_t currentTripSteps = motionController.GetTripSteps();
     const uint32_t runSteps = currentTripSteps >= runStartTripSteps ? currentTripSteps - runStartTripSteps : 0;
-    const uint32_t distanceCentimeters = runSteps * 78u;
+    const uint32_t distanceCentimeters = runSteps * strideLengthCm;
     const uint32_t elapsedSeconds = stopWatchController.GetElapsedTime() / configTICK_RATE_HZ;
 
     uint32_t paceMinutes = 0;
@@ -606,6 +815,8 @@ void RunTracker::UpdateSpeed() {
         paceSeconds = paceSecondsPerKm % 60u;
       }
     }
+
+    speedValues.push_back(paceMinutes * 60u + paceSeconds);
 
     lv_label_set_text_fmt(
         speedValueLabel,
@@ -654,8 +865,55 @@ void RunTracker::PrepareAppToExit() {
 }
 
 void RunTracker::CleanObjects() {
-    EnableScreenSleeping();
-    stopWatchController.Clear();
-    heartRateController.Disable();
-    wakeLock.Release();
+  heartRateValues.clear();
+  speedValues.clear();
+  EnableScreenSleeping();
+  stopWatchController.Clear();
+  heartRateController.Disable();
+  wakeLock.Release();
+}
+
+std::string formatPace(uint32_t sec) {
+  uint32_t m = sec / 60;
+  uint32_t s = sec % 60;
+
+  char buf[16];
+  std::snprintf(buf, sizeof(buf), "%u'%02u\"", m, s);
+  return std::string(buf);
+}
+
+std::string RunTracker::computePaceSummary(const std::vector<uint32_t>& v) {
+  if (v.empty()) return "N/A";
+
+  uint32_t minV = *std::min_element(v.begin(), v.end());
+  uint32_t maxV = *std::max_element(v.begin(), v.end());
+
+  uint64_t sum = std::accumulate(v.begin(), v.end(), uint64_t{0});
+  uint32_t avgV = static_cast<uint32_t>(
+    std::lround(
+      static_cast<double>(sum) / v.size()
+    )
+  );
+
+  std::string minStr = formatPace(minV);
+  std::string maxStr = formatPace(maxV);
+  std::string avgStr = formatPace(avgV);
+
+  return minStr + "/" + maxStr + "/" + avgStr;
+}
+
+std::string RunTracker::computeHeartRateSummary(const std::vector<uint8_t>& v) {
+  if (v.empty()) return "N/A";
+
+  uint8_t minV = *std::min_element(v.begin(), v.end());
+  uint8_t maxV = *std::max_element(v.begin(), v.end());
+
+  uint32_t sum = std::accumulate(v.begin(), v.end(), 0u);
+  uint8_t avgV = static_cast<uint8_t>(std::lround(
+      static_cast<double>(sum) / v.size()
+  ));
+
+  char buf[32];
+  std::snprintf(buf, sizeof(buf), "%u/%u/%u bpm", minV, maxV, avgV);
+  return std::string(buf);
 }

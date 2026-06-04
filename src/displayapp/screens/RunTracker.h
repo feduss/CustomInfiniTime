@@ -26,33 +26,41 @@ namespace Pinetime {
         ~RunTracker() override;
         void Refresh() override;
 
-        void SetupViews();
+        void SetupViews(bool isFirstTime);
         void SetupBindings();
 
         void SetupAppTitle();
 
         void SetupPlayButton();
         void SetupStopButton();
+        void SetupCloseButton();
 
-        void SetupTimeTitleLabel();
-        void SetupTimeValueLabel();
+        void SetupTimeTitleLabel(bool isFirstTime);
+        void SetupTimeValueLabel(bool isFirstTime);
 
-        void SetupDistanceTitleLabel();
-        void SetupDistanceValueLabel();
+        void SetupDistanceTitleLabel(bool isFirstTime);
+        void SetupDistanceValueLabel(bool isFirstTime);
 
-        void SetupSpeedTitleLabel();
-        void SetupSpeedValueLabel();
+        void SetupSpeedTitleLabel(bool isFirstTime);
+        void SetupSpeedValueLabel(bool isFirstTime);
 
-        void SetupHeartRateTitleLabel();
-        void SetupHeartRateValueLabel();
+        void SetupHeartRateTitleLabel(bool isFirstTime);
+        void SetupHeartRateValueLabel(bool isFirstTime);
 
         void SetObjectVisibility(lv_obj_t* obj, bool isVisible);
 
         static void PlayButtonEventHandler(lv_obj_t* obj, lv_event_t event);
         static void StopButtonEventHandler(lv_obj_t* obj, lv_event_t event);
+        static void CloseButtonEventHandler(lv_obj_t* obj, lv_event_t event);
 
         void OnStartEvent();
         void OnStopEvent();
+        void OnCloseEvent();
+
+        void SetTimeReportLabels();
+        void SetDistanceReportLabels();
+        void SetSpeedReportLabels();
+        void SetHeartRateReportLabels();
 
         void UpdateTime();
         void UpdateDistance();
@@ -67,6 +75,9 @@ namespace Pinetime {
         void PrepareAppToExit();
         void CleanObjects();
 
+        static std::string computePaceSummary(const std::vector<uint32_t>& v);
+        static std::string computeHeartRateSummary(const std::vector<uint8_t>& v);
+
       private:
         Controllers::StopWatchController& stopWatchController;
         Controllers::HeartRateController& heartRateController;
@@ -77,8 +88,8 @@ namespace Pinetime {
         uint32_t runStartTripSteps = 0;
 
         lv_obj_t *appTitleLabel;
-        lv_obj_t *playButton, *stopButton;
-        lv_obj_t *playButtonIcon, *stopButtonIcon;
+        lv_obj_t *playButton, *stopButton, *closeButton;
+        lv_obj_t *playButtonIcon, *stopButtonIcon, *closeButtonIcon;
 
         lv_obj_t *timeTitleLabel, *timeValueLabel;
         lv_obj_t *distanceTitleLabel, *distanceValueLabel;
@@ -95,12 +106,24 @@ namespace Pinetime {
         const char* speedTitleText = "Speed";
         const char* heartRateTitleText = "HR";
 
+        const char* timeReportTitleText = "Time: ";
+        const char* distanceReportTitleText = "Dist.: ";
+        const char* speedReportTitleText = "Speed (m/M/a):";
+        const char* heartRateReportTitleText = "HR (m/M/a):";
+
         bool isTracking = false;
         bool isExiting = false;
 
         lv_task_t* taskRefresh;
 
         Utility::DirtyValue<uint32_t> renderedSeconds;
+
+        uint32_t strideLengthCm = 78u;
+
+        char timeBuffer[16];
+        uint32_t distanceCm = 0;
+        std::vector<uint32_t> speedValues = {};
+        std::vector<uint8_t> heartRateValues = {};
       };
     }
 
