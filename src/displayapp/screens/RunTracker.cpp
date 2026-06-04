@@ -647,7 +647,7 @@ void RunTracker::DisableScreenSleeping() {
 void RunTracker::PrepareAppToExit() {
     if (isExiting) { return; }
     isExiting = true;
-    printf("\n[DoubleTimer] prepareAppToExit() - cleaning up");
+    printf("\n[RunTracker] prepareAppToExit() - cleaning up");
     CleanObjects();
     lv_task_del(taskRefresh);
     lv_obj_clean(lv_scr_act());
