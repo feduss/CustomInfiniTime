@@ -52,6 +52,7 @@ namespace Pinetime {
         bool OnButtonPushed() override;
         bool OnTouchEvent(Pinetime::Applications::TouchEvents event) override;
 
+        void DeleteRefreshTask();
         void enableScreenSleeping();
         void disableScreenSleeping();
         void prepareAppToExit();
@@ -65,7 +66,7 @@ namespace Pinetime {
         lv_obj_t *firstTimerPlayStopBtn, *firstTimerIcon, *firstTimerLabel;
         lv_obj_t *secondTimerPlayStopBtn, *secondTimerIcon, *secondTimerLabel;
 
-        lv_task_t* taskRefresh;
+        lv_task_t* taskRefresh = nullptr;
 
         const int appVersionMajor = 1;
         const int appVersionMinor = 0;

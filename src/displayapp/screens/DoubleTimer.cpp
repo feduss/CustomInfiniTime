@@ -18,13 +18,6 @@ DoubleTimer::DoubleTimer(
 
   resetTimer(TimerTypes::First);
   resetTimer(TimerTypes::Second); 
-
-  taskRefresh = lv_task_create(
-    RefreshTaskCallback, 
-    LV_DISP_DEF_REFR_PERIOD, 
-    LV_TASK_PRIO_MID, 
-    this
-  );
 }
 
 DoubleTimer::~DoubleTimer() {
@@ -234,6 +227,14 @@ bool DoubleTimer::OnTouchEvent(Pinetime::Applications::TouchEvents event) {
 // MARK: - Timer logics
 
 void DoubleTimer::playTimerEventHandler(TimerTypes timerType) {
+
+    taskRefresh = lv_task_create(
+        RefreshTaskCallback, 
+        LV_DISP_DEF_REFR_PERIOD, 
+        LV_TASK_PRIO_MID, 
+        this
+    );
+
     blinkTime = xTaskGetTickCount() + blinkInterval;
     switch (timerType) {
         case TimerTypes::First:
@@ -260,6 +261,7 @@ void DoubleTimer::playTimerEventHandler(TimerTypes timerType) {
 void DoubleTimer::stopTimerEventHandler(TimerTypes timerType) {
     resetTimer(timerType);
     enableScreenSleeping();
+    DeleteRefreshTask();
 }
 
 void DoubleTimer::Refresh() {
@@ -373,6 +375,8 @@ void DoubleTimer::resetTimer(TimerTypes timerType) {
     lv_label_set_text_fmt(timerLabel, "%02d:%02d", timerMinutes, timerSeconds);
     lv_obj_set_style_local_text_color(timerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE); 
     *timerState = TimerStates::Init;
+
+    DeleteRefreshTask();
 }
 
 // MARK: - Helpers / Utils
@@ -413,6 +417,13 @@ void DoubleTimer::prepareAppToExit() {
     enableScreenSleeping();
     resetTimer(TimerTypes::First);
     resetTimer(TimerTypes::Second);
-    lv_task_del(taskRefresh);
+    DeleteRefreshTask();
     lv_obj_clean(lv_scr_act());
+}
+
+void DoubleTimer::DeleteRefreshTask() {
+    if (taskRefresh != nullptr) {
+      lv_task_del(taskRefresh);
+      taskRefresh = nullptr;
+    }
 }
