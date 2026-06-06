@@ -75,8 +75,8 @@ namespace Pinetime {
         void PrepareAppToExit();
         void CleanObjects();
 
-        static std::string computePaceSummary(const std::vector<uint32_t>& v);
-        static std::string computeHeartRateSummary(const std::vector<uint8_t>& v);
+        std::string getPaceSummary();
+        std::string getHeartRateSummary();
 
       private:
         Controllers::StopWatchController& stopWatchController;
@@ -114,7 +114,7 @@ namespace Pinetime {
         bool isTracking = false;
         bool isExiting = false;
 
-        lv_task_t* taskRefresh;
+        lv_task_t* taskRefresh = nullptr;
 
         Utility::DirtyValue<uint32_t> renderedSeconds;
 
@@ -122,8 +122,16 @@ namespace Pinetime {
 
         char timeBuffer[16];
         uint32_t distanceCm = 0;
-        std::vector<uint32_t> speedValues = {};
-        std::vector<uint8_t> heartRateValues = {};
+
+        uint32_t currentPaceSecsPerKm = 0;
+        uint32_t minPaceSecsPerKm = 0;
+        uint32_t maxPaceSecsPerKm = 0;
+        uint32_t avgPaceSecsPerKm = 0;
+
+        uint8_t currentHeartRate = 0;
+        uint8_t minHeartRate = 0;
+        uint8_t maxHeartRate = 0;
+        uint8_t avgHeartRate = 0;
       };
     }
 

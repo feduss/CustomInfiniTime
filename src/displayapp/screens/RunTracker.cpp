@@ -27,14 +27,19 @@ RunTracker::RunTracker(
   Controllers::HeartRateController& heartRateController, 
   Controllers::MotionController& motionController,
   System::SystemTask& systemTask
-) : stopWatchController {stopWatchController}, heartRateController {heartRateController}, motionController {motionController}, systemTask {systemTask}, wakeLock(systemTask) {
+) : 
+stopWatchController {stopWatchController}, 
+heartRateController {heartRateController}, 
+motionController {motionController}, 
+systemTask {systemTask}, 
+wakeLock(systemTask)
+{
   SetupViews(true);
   SetupBindings();
 }
 
 RunTracker::~RunTracker() {
-  lv_task_del(taskRefresh);
-  lv_obj_clean(lv_scr_act());
+  PrepareAppToExit();
 }
 
 void RunTracker::SetupViews(bool isFirstTime) {
@@ -525,7 +530,10 @@ void RunTracker::OnStopEvent() {
   SetHeartRateReportLabels();
 
   SetObjectVisibility(stopButton, false);
+  SetObjectVisibility(stopButtonIcon, false);
+
   SetObjectVisibility(closeButton, true);
+  SetObjectVisibility(closeButtonIcon, true);
 
   CleanObjects();
 }
@@ -602,7 +610,7 @@ void RunTracker::SetSpeedReportLabels() {
       8
   );
 
-  std::string paceSummary = computePaceSummary(speedValues);
+  std::string paceSummary = getPaceSummary();
   lv_label_set_text(
     speedValueLabel, 
     paceSummary.c_str()
@@ -630,7 +638,7 @@ void RunTracker::SetHeartRateReportLabels() {
       8
   );
 
-  std::string heartRateSummary = computeHeartRateSummary(heartRateValues);
+  std::string heartRateSummary = getHeartRateSummary();
   lv_label_set_text(
     heartRateValueLabel, 
     heartRateSummary.c_str()
@@ -722,57 +730,16 @@ void RunTracker::UpdateTime() {
   );
 }
 
-void RunTracker::UpdateHeartRate() {
-
-  if (isTracking) {
-
-    auto state = heartRateController.State();
-    switch (state) {
-
-      case Controllers::HeartRateController::States::Stopped:
-        lv_label_set_text_static(heartRateValueLabel, "Stopped");
-        break;
-      case Controllers::HeartRateController::States::NoTouch:
-      case Controllers::HeartRateController::States::NotEnoughData:
-        lv_label_set_text_static(heartRateValueLabel, "Waiting");
-        break;
-      default:
-        if (heartRateController.HeartRate() == 0) {
-          lv_label_set_text_static(heartRateValueLabel, "Dead");
-        } else {
-          uint8_t heartRate = heartRateController.HeartRate();
-          heartRateValues.push_back(heartRate);
-          lv_label_set_text_fmt(heartRateValueLabel, "%03d bpm", heartRate);
-        }
-    }
-  } else {
-    lv_label_set_text_static(
-        heartRateValueLabel, 
-        "-"
-    );
-  }
-
-  lv_obj_align(
-      heartRateValueLabel, 
-      heartRateTitleLabel, 
-      LV_ALIGN_OUT_BOTTOM_MID, 
-      0, 
-      8
-  );
-}
-
 void RunTracker::UpdateDistance() {
 
   if (isTracking) {
 
     const uint32_t currentTripSteps = motionController.GetTripSteps();
     const uint32_t runSteps = currentTripSteps >= runStartTripSteps ? currentTripSteps - runStartTripSteps : 0;
-    const uint32_t distanceCentimeters = runSteps * strideLengthCm; // average stride estimate
+    distanceCm = runSteps * strideLengthCm; // average stride estimate
 
-    const uint32_t kilometers = distanceCentimeters / 100000u;
-    const uint32_t hectometers = (distanceCentimeters % 100000u) / 1000u;
-
-    distanceCm = distanceCentimeters;
+    const uint32_t kilometers = distanceCm / 100000u;
+    const uint32_t hectometers = (distanceCm % 100000u) / 1000u;
 
     lv_label_set_text_fmt(
         distanceValueLabel,
@@ -816,7 +783,7 @@ void RunTracker::UpdateSpeed() {
       }
     }
 
-    speedValues.push_back(paceMinutes * 60u + paceSeconds);
+    currentPaceSecsPerKm = (paceMinutes * 60u + paceSeconds);
 
     lv_label_set_text_fmt(
         speedValueLabel,
@@ -824,6 +791,20 @@ void RunTracker::UpdateSpeed() {
         paceMinutes,
         paceSeconds
     );
+
+    if (currentPaceSecsPerKm < minPaceSecsPerKm || minPaceSecsPerKm == 0) {
+      minPaceSecsPerKm = currentPaceSecsPerKm;
+    }
+    if (currentPaceSecsPerKm > maxPaceSecsPerKm || maxPaceSecsPerKm == 0) {
+      maxPaceSecsPerKm = currentPaceSecsPerKm;
+    }
+
+    if (avgPaceSecsPerKm == 0) {
+      avgPaceSecsPerKm = currentPaceSecsPerKm;
+    } else {
+      avgPaceSecsPerKm = (avgPaceSecsPerKm + currentPaceSecsPerKm) / 2;
+    }
+
   } else {
     lv_label_set_text_static(
         speedValueLabel, 
@@ -840,6 +821,56 @@ void RunTracker::UpdateSpeed() {
   );
 }
 
+void RunTracker::UpdateHeartRate() {
+
+  if (isTracking) {
+
+    auto state = heartRateController.State();
+    switch (state) {
+
+      case Controllers::HeartRateController::States::Stopped:
+        lv_label_set_text_static(heartRateValueLabel, "Stopped");
+        break;
+      case Controllers::HeartRateController::States::NoTouch:
+      case Controllers::HeartRateController::States::NotEnoughData:
+        lv_label_set_text_static(heartRateValueLabel, "Waiting");
+        break;
+      default:
+        if (heartRateController.HeartRate() == 0) {
+          lv_label_set_text_static(heartRateValueLabel, "Dead");
+        } else {
+          currentHeartRate = heartRateController.HeartRate();
+          lv_label_set_text_fmt(heartRateValueLabel, "%03d bpm", currentHeartRate);
+
+          if (currentHeartRate < minHeartRate || minHeartRate == 0) {
+            minHeartRate = currentHeartRate;
+          }
+          if (currentHeartRate > maxHeartRate || maxHeartRate == 0) {
+            maxHeartRate = currentHeartRate;
+          }
+
+          if (avgHeartRate == 0) {
+            avgHeartRate = currentHeartRate;
+          } else {
+            avgHeartRate = (avgHeartRate + currentHeartRate) / 2;
+          }
+        }
+    }
+  } else {
+    lv_label_set_text_static(
+        heartRateValueLabel, 
+        "-"
+    );
+  }
+
+  lv_obj_align(
+      heartRateValueLabel, 
+      heartRateTitleLabel, 
+      LV_ALIGN_OUT_BOTTOM_MID, 
+      0, 
+      8
+  );
+}
 
 // MARK: - Utils
 
@@ -860,13 +891,26 @@ void RunTracker::PrepareAppToExit() {
     isExiting = true;
     printf("\n[RunTracker] prepareAppToExit() - cleaning up");
     CleanObjects();
-    lv_task_del(taskRefresh);
+    
+    if (taskRefresh != nullptr) {
+      lv_task_del(taskRefresh);
+      taskRefresh = nullptr;
+    }
+
     lv_obj_clean(lv_scr_act());
 }
 
 void RunTracker::CleanObjects() {
-  heartRateValues.clear();
-  speedValues.clear();
+  timeBuffer[0] = '\0';
+  distanceCm = 0;
+  currentPaceSecsPerKm = 0;
+  minPaceSecsPerKm = 0;
+  maxPaceSecsPerKm = 0;
+  avgPaceSecsPerKm = 0;
+  currentHeartRate = 0;
+  minHeartRate = 0;
+  maxHeartRate = 0;
+  avgHeartRate = 0;
   EnableScreenSleeping();
   stopWatchController.Clear();
   heartRateController.Disable();
@@ -888,38 +932,22 @@ std::string formatPace(uint32_t sec) {
   return std::string(buf);
 }
 
-std::string RunTracker::computePaceSummary(const std::vector<uint32_t>& v) {
-  if (v.empty()) return "N/A";
-
-  uint32_t minV = *std::min_element(v.begin(), v.end());
-  uint32_t maxV = *std::max_element(v.begin(), v.end());
-
-  uint64_t sum = std::accumulate(v.begin(), v.end(), uint64_t{0});
-  uint32_t avgV = static_cast<uint32_t>(
-    std::lround(
-      static_cast<double>(sum) / v.size()
-    )
-  );
-
-  std::string minStr = formatPace(minV);
-  std::string maxStr = formatPace(maxV);
-  std::string avgStr = formatPace(avgV);
+std::string RunTracker::getPaceSummary() {
+  std::string minStr = formatPace(minPaceSecsPerKm);
+  std::string maxStr = formatPace(maxPaceSecsPerKm);
+  std::string avgStr = formatPace(avgPaceSecsPerKm);
 
   return minStr + "/" + maxStr + "/" + avgStr;
 }
 
-std::string RunTracker::computeHeartRateSummary(const std::vector<uint8_t>& v) {
-  if (v.empty()) return "N/A";
-
-  uint8_t minV = *std::min_element(v.begin(), v.end());
-  uint8_t maxV = *std::max_element(v.begin(), v.end());
-
-  uint32_t sum = std::accumulate(v.begin(), v.end(), 0u);
-  uint8_t avgV = static_cast<uint8_t>(std::lround(
-      static_cast<double>(sum) / v.size()
-  ));
-
+std::string RunTracker::getHeartRateSummary() {
   char buf[32];
-  std::snprintf(buf, sizeof(buf), "%u/%u/%u bpm", minV, maxV, avgV);
+  std::snprintf(
+    buf, sizeof(buf), 
+    "%u/%u/%u bpm", 
+    minHeartRate, 
+    maxHeartRate, 
+    avgHeartRate
+  );
   return std::string(buf);
 }
