@@ -97,7 +97,7 @@ namespace Pinetime {
         lv_obj_t *heartRateTitleLabel, *heartRateValueLabel;
         
         const int appVersionMajor = 0;
-        const int appVersionMinor = 3;
+        const int appVersionMinor = 5;
         const int appVersionPatch = 0;
 
         const char* appTitle = "RunTracker";
@@ -116,22 +116,24 @@ namespace Pinetime {
 
         lv_task_t* taskRefresh = nullptr;
 
-        Utility::DirtyValue<uint32_t> renderedSeconds;
+        Utility::DirtyValue<uint32_t> dirtyRenderedSeconds {0};
 
         uint32_t strideLengthCm = 78u;
 
         char timeBuffer[16];
-        uint32_t distanceCm = 0;
+        Utility::DirtyValue<double> dirtyDistanceCm {0};
 
-        uint32_t currentPaceSecsPerKm = 0;
-        uint32_t minPaceSecsPerKm = 0;
-        uint32_t maxPaceSecsPerKm = 0;
-        uint32_t avgPaceSecsPerKm = 0;
+        Utility::DirtyValue<double> dirtyCurrentPaceSecsPerKm {0};
+        uint8_t paceHistorySize = 0;
+        double minPaceSecsPerKm = 0;
+        double maxPaceSecsPerKm = 0;
+        double avgPaceSecsPerKm = 0;
 
-        uint8_t currentHeartRate = 0;
+        Utility::DirtyValue<uint8_t> dirtyCurrentHeartRate {0};
+        uint8_t heartRateHistorySize = 0;
         uint8_t minHeartRate = 0;
         uint8_t maxHeartRate = 0;
-        uint8_t avgHeartRate = 0;
+        double avgHeartRate = 0;
       };
     }
 

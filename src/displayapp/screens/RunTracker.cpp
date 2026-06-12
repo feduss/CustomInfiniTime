@@ -578,14 +578,15 @@ void RunTracker::SetDistanceReportLabels() {
       8
   );
 
-  const uint32_t kilometers = distanceCm / 100000u;
-  const uint32_t hectometers = (distanceCm % 100000u) / 1000u;
+  const double distanceCm = dirtyDistanceCm.Get();
+  const double kilometers = distanceCm / 100000.0;
+  const double hectometers = std::fmod(distanceCm, 100000.0) / 1000.0;
 
   lv_label_set_text_fmt(
       distanceValueLabel,
       "%u.%02u km",
-      kilometers,
-      hectometers
+      static_cast<unsigned int>(kilometers),
+      static_cast<unsigned int>(hectometers)
   );
 
   lv_obj_align(
@@ -700,9 +701,9 @@ void RunTracker::UpdateTime() {
   if (isTracking) {
 
     TimeSeparated elapsedTime = ConvertTicksToTimeSegments(stopWatchController.GetElapsedTime());
-    renderedSeconds = elapsedTime.epochSecs;
+    dirtyRenderedSeconds = elapsedTime.epochSecs;
 
-    if (renderedSeconds.IsUpdated()) {
+    if (dirtyRenderedSeconds.IsUpdated()) {      
       snprintf(
         timeBuffer, 
         sizeof(timeBuffer), 
@@ -736,17 +737,20 @@ void RunTracker::UpdateDistance() {
 
     const uint32_t currentTripSteps = motionController.GetTripSteps();
     const uint32_t runSteps = currentTripSteps >= runStartTripSteps ? currentTripSteps - runStartTripSteps : 0;
-    distanceCm = runSteps * strideLengthCm; // average stride estimate
+    dirtyDistanceCm = runSteps * strideLengthCm; // average stride estimate
 
-    const uint32_t kilometers = distanceCm / 100000u;
-    const uint32_t hectometers = (distanceCm % 100000u) / 1000u;
+    if (dirtyDistanceCm.IsUpdated()) {
+      const double distanceCm = dirtyDistanceCm.Get();
+      const double kilometers = distanceCm / 100000.0;
+      const double hectometers = std::fmod(distanceCm, 100000.0) / 1000u;
 
-    lv_label_set_text_fmt(
-        distanceValueLabel,
-        "%u.%02u km",
-        kilometers,
-        hectometers
-    );
+      lv_label_set_text_fmt(
+          distanceValueLabel,
+          "%u.%02u km",
+          static_cast<unsigned int>(kilometers),
+          static_cast<unsigned int>(hectometers)
+      );
+    }
   } else {
     lv_label_set_text_static(
         distanceValueLabel, 
@@ -766,45 +770,47 @@ void RunTracker::UpdateDistance() {
 void RunTracker::UpdateSpeed() {
 
   if (isTracking) {
+    
+    const double distanceCm = dirtyDistanceCm.Get();
+    const uint32_t renderedSeconds = dirtyRenderedSeconds.Get();
+    if (distanceCm > 0 && renderedSeconds > 0) {
+      double paceMinutes = 0;
+      double paceSeconds = 0;
+      const double distanceKilometers = distanceCm / 100000.0;
+      const double paceSecondsPerKm = renderedSeconds / distanceKilometers;
+      paceMinutes = paceSecondsPerKm / 60.0;
+      paceSeconds = std::fmod(paceSecondsPerKm, 60.0);
 
-    const uint32_t currentTripSteps = motionController.GetTripSteps();
-    const uint32_t runSteps = currentTripSteps >= runStartTripSteps ? currentTripSteps - runStartTripSteps : 0;
-    const uint32_t distanceCentimeters = runSteps * strideLengthCm;
-    const uint32_t elapsedSeconds = stopWatchController.GetElapsedTime() / configTICK_RATE_HZ;
+      dirtyCurrentPaceSecsPerKm = (paceMinutes * 60u + paceSeconds);
 
-    uint32_t paceMinutes = 0;
-    uint32_t paceSeconds = 0;
-    if (distanceCentimeters > 0) {
-      const uint32_t distanceKilometers = distanceCentimeters / 100000u;
-      if (distanceKilometers > 0) {
-        const uint32_t paceSecondsPerKm = elapsedSeconds / distanceKilometers;
-        paceMinutes = paceSecondsPerKm / 60u;
-        paceSeconds = paceSecondsPerKm % 60u;
+        
+
+      if (dirtyCurrentPaceSecsPerKm.IsUpdated()) {
+
+        lv_label_set_text_fmt(
+          speedValueLabel,
+          "%u'%02u\"/km",
+          static_cast<unsigned int>(paceMinutes),
+          static_cast<unsigned int>(paceSeconds)
+        );
+
+        const u_int32_t currentPaceSecsPerKm = dirtyCurrentPaceSecsPerKm.Get();
+
+        if (currentPaceSecsPerKm < minPaceSecsPerKm || minPaceSecsPerKm == 0) {
+          minPaceSecsPerKm = currentPaceSecsPerKm;
+        }
+        if (currentPaceSecsPerKm > maxPaceSecsPerKm || maxPaceSecsPerKm == 0) {
+          maxPaceSecsPerKm = currentPaceSecsPerKm;
+        }
+
+        paceHistorySize++;
+        if (avgPaceSecsPerKm == 0) {
+          avgPaceSecsPerKm = currentPaceSecsPerKm;
+        } else {
+          avgPaceSecsPerKm = avgPaceSecsPerKm + ((currentPaceSecsPerKm - avgPaceSecsPerKm) / paceHistorySize);
+        };
       }
     }
-
-    currentPaceSecsPerKm = (paceMinutes * 60u + paceSeconds);
-
-    lv_label_set_text_fmt(
-        speedValueLabel,
-        "%u'%02u\"/km",
-        paceMinutes,
-        paceSeconds
-    );
-
-    if (currentPaceSecsPerKm < minPaceSecsPerKm || minPaceSecsPerKm == 0) {
-      minPaceSecsPerKm = currentPaceSecsPerKm;
-    }
-    if (currentPaceSecsPerKm > maxPaceSecsPerKm || maxPaceSecsPerKm == 0) {
-      maxPaceSecsPerKm = currentPaceSecsPerKm;
-    }
-
-    if (avgPaceSecsPerKm == 0) {
-      avgPaceSecsPerKm = currentPaceSecsPerKm;
-    } else {
-      avgPaceSecsPerKm = (avgPaceSecsPerKm + currentPaceSecsPerKm) / 2;
-    }
-
   } else {
     lv_label_set_text_static(
         speedValueLabel, 
@@ -839,20 +845,24 @@ void RunTracker::UpdateHeartRate() {
         if (heartRateController.HeartRate() == 0) {
           lv_label_set_text_static(heartRateValueLabel, "Dead");
         } else {
-          currentHeartRate = heartRateController.HeartRate();
-          lv_label_set_text_fmt(heartRateValueLabel, "%03d bpm", currentHeartRate);
+          dirtyCurrentHeartRate = heartRateController.HeartRate();
+          if (dirtyCurrentHeartRate.IsUpdated()) {
+            const uint32_t currentHeartRate = dirtyCurrentHeartRate.Get();
+            lv_label_set_text_fmt(heartRateValueLabel, "%03d bpm", currentHeartRate);
 
-          if (currentHeartRate < minHeartRate || minHeartRate == 0) {
-            minHeartRate = currentHeartRate;
-          }
-          if (currentHeartRate > maxHeartRate || maxHeartRate == 0) {
-            maxHeartRate = currentHeartRate;
-          }
+            if (currentHeartRate < minHeartRate || minHeartRate == 0) {
+              minHeartRate = currentHeartRate;
+            }
+            if (currentHeartRate > maxHeartRate || maxHeartRate == 0) {
+              maxHeartRate = currentHeartRate;
+            }
 
-          if (avgHeartRate == 0) {
-            avgHeartRate = currentHeartRate;
-          } else {
-            avgHeartRate = (avgHeartRate + currentHeartRate) / 2;
+            heartRateHistorySize++;
+            if (avgHeartRate == 0) {
+              avgHeartRate = currentHeartRate;
+            } else {
+              avgHeartRate = avgHeartRate + ((currentHeartRate - avgHeartRate) / heartRateHistorySize);
+            }
           }
         }
     }
@@ -901,13 +911,16 @@ void RunTracker::PrepareAppToExit() {
 }
 
 void RunTracker::CleanObjects() {
+  dirtyRenderedSeconds = {0};
   timeBuffer[0] = '\0';
-  distanceCm = 0;
-  currentPaceSecsPerKm = 0;
+  dirtyDistanceCm = {0};
+  dirtyCurrentPaceSecsPerKm = {0};
+  paceHistorySize = 0;
   minPaceSecsPerKm = 0;
   maxPaceSecsPerKm = 0;
   avgPaceSecsPerKm = 0;
-  currentHeartRate = 0;
+  dirtyCurrentHeartRate = {0};
+  heartRateHistorySize = 0;
   minHeartRate = 0;
   maxHeartRate = 0;
   avgHeartRate = 0;
@@ -917,17 +930,17 @@ void RunTracker::CleanObjects() {
   wakeLock.Release();
 }
 
-std::string formatPace(uint32_t sec) {
-  uint32_t m = sec / 60;
-  uint32_t s = sec % 60;
+std::string formatPace(double sec) {
+  double m = sec / 60;
+  double s = std::fmod(sec, 60);
 
   char buf[16];
   std::snprintf(
     buf,
     sizeof(buf),
-    "%lu'%02lu\"",
-    static_cast<unsigned long>(m),
-    static_cast<unsigned long>(s)
+    "%u'%02u\"",
+    static_cast<unsigned int>(m),
+    static_cast<unsigned int>(s)
   );
   return std::string(buf);
 }
@@ -947,7 +960,7 @@ std::string RunTracker::getHeartRateSummary() {
     "%u/%u/%u bpm", 
     minHeartRate, 
     maxHeartRate, 
-    avgHeartRate
+    static_cast<unsigned int>(avgHeartRate)
   );
   return std::string(buf);
 }
