@@ -11,7 +11,7 @@ DoubleTimer::DoubleTimer(
     Controllers::MotorController& motorController, 
     System::SystemTask& systemTask
 ) 
-: motorController {motorController}, systemTask {systemTask} {
+: motorController {motorController}, systemTask {systemTask}, wakeLock(systemTask) {
 
   setupViews();
   setupBindings();
@@ -254,14 +254,13 @@ void DoubleTimer::playTimerEventHandler(TimerTypes timerType) {
             startSecondTimer = xTaskGetTickCount();
             break;
     }
-
-    disableScreenSleeping();
+    wakeLock.Lock();
 } 
 
 void DoubleTimer::stopTimerEventHandler(TimerTypes timerType) {
     resetTimer(timerType);
-    enableScreenSleeping();
-    DeleteRefreshTask();
+    wakeLock.Release();
+    deleteRefreshTask();
 }
 
 void DoubleTimer::Refresh() {
@@ -339,7 +338,7 @@ void DoubleTimer::updateTimer(TimerTypes timerType) {
             }
         } else {
             resetTimer(timerType);
-            enableScreenSleeping();
+            wakeLock.Release();
         }
     }
 }
@@ -376,7 +375,7 @@ void DoubleTimer::resetTimer(TimerTypes timerType) {
     lv_obj_set_style_local_text_color(timerLabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE); 
     *timerState = TimerStates::Init;
 
-    DeleteRefreshTask();
+    deleteRefreshTask();
 }
 
 // MARK: - Helpers / Utils
@@ -402,26 +401,17 @@ bool DoubleTimer::isTimerActive() {
     return firstTimerState == TimerStates::Running || secondTimerState == TimerStates::Running;
 }
 
-void DoubleTimer::enableScreenSleeping() {
-    systemTask.PushMessage(Pinetime::System::Messages::EnableSleeping);
-}
-
-void DoubleTimer::disableScreenSleeping() {
-    systemTask.PushMessage(Pinetime::System::Messages::DisableSleeping);
-}
-
 void DoubleTimer::prepareAppToExit() {
     if (isExiting) { return; }
     isExiting = true;
     printf("\n[DoubleTimer] prepareAppToExit() - cleaning up");
-    enableScreenSleeping();
     resetTimer(TimerTypes::First);
     resetTimer(TimerTypes::Second);
-    DeleteRefreshTask();
+    deleteRefreshTask();
     lv_obj_clean(lv_scr_act());
 }
 
-void DoubleTimer::DeleteRefreshTask() {
+void DoubleTimer::deleteRefreshTask() {
     if (taskRefresh != nullptr) {
       lv_task_del(taskRefresh);
       taskRefresh = nullptr;

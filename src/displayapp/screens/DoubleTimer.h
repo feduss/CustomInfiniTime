@@ -6,6 +6,7 @@
 #include <FreeRTOS.h>
 #include "systemtask/SystemTask.h"
 #include "components/motor/MotorController.h"
+#include "systemtask/WakeLock.h"
 
 namespace Pinetime {
   namespace Applications {
@@ -52,14 +53,13 @@ namespace Pinetime {
         bool OnButtonPushed() override;
         bool OnTouchEvent(Pinetime::Applications::TouchEvents event) override;
 
-        void DeleteRefreshTask();
-        void enableScreenSleeping();
-        void disableScreenSleeping();
+        void deleteRefreshTask();
         void prepareAppToExit();
 
       private:
         Pinetime::Controllers::MotorController& motorController;
         Pinetime::System::SystemTask& systemTask;
+        Pinetime::System::WakeLock wakeLock;
         TimerStates firstTimerState = TimerStates::Init;
         TimerStates secondTimerState = TimerStates::Init;
         lv_obj_t *appTitleLabel;
@@ -70,7 +70,7 @@ namespace Pinetime {
 
         const int appVersionMajor = 1;
         const int appVersionMinor = 0;
-        const int appVersionPatch = 7;
+        const int appVersionPatch = 8;
 
         const int firstTimerMinutes = 1;
         const int firstTimerSeconds = 30;
