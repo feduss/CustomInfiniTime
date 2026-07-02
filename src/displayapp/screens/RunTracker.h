@@ -29,49 +29,59 @@ namespace Pinetime {
         void SetupViews(bool isFirstTime);
         void SetupBindings();
 
+        void SetupLabelFmt(
+          lv_obj_t*& label,
+          lv_obj_t* parent,
+          //const lv_font_t* font,
+          lv_color_t color,
+          lv_coord_t width,
+          lv_label_long_mode_t longMode,
+          lv_label_align_t textAlign,
+          lv_obj_t* alignTo,
+          lv_align_t alignType,
+          lv_coord_t offsetX,
+          lv_coord_t offsetY
+        );
+
         void SetupAppTitle();
-
-        void SetupPlayButton();
-        void SetupStopButton();
-        void SetupCloseButton();
-
-        void SetupTimeTitleLabel(bool isFirstTime);
-        void SetupTimeValueLabel(bool isFirstTime);
-
-        void SetupDistanceTitleLabel(bool isFirstTime);
-        void SetupDistanceValueLabel(bool isFirstTime);
-
-        void SetupSpeedTitleLabel(bool isFirstTime);
-        void SetupSpeedValueLabel(bool isFirstTime);
-
-        void SetupHeartRateTitleLabel(bool isFirstTime);
-        void SetupHeartRateValueLabel(bool isFirstTime);
-
-        void SetObjectVisibility(lv_obj_t* obj, bool isVisible);
-
-        static void PlayButtonEventHandler(lv_obj_t* obj, lv_event_t event);
-        static void StopButtonEventHandler(lv_obj_t* obj, lv_event_t event);
-        static void CloseButtonEventHandler(lv_obj_t* obj, lv_event_t event);
-
-        void OnStartEvent();
-        void OnStopEvent();
-        void OnCloseEvent();
-
-        void SetTimeReportLabels();
-        void SetDistanceReportLabels();
-        void SetSpeedReportLabels();
-        void SetHeartRateReportLabels();
+        void SetupTimeValueLabel();
+        void SetupDistanceValueLabel();
+        void SetupSpeedValueLabel();
+        void SetupHeartRateValueLabel();
 
         void UpdateTime();
         void UpdateDistance();
         void UpdateSpeed();
         void UpdateHeartRate();
 
+        void SetTimeReportLabel();
+        void SetDistanceReportLabel();
+        void SetSpeedReportLabel();
+        void SetHeartRateReportLabel();
+
+        void SetupPlayButton();
+        void SetupPlayPauseButton();
+        void SetupStopButton();
+        void SetupCloseButton();
+
+        void SetObjectVisibility(lv_obj_t* obj, bool isVisible);
+
+        static void PlayButtonEventHandler(lv_obj_t* obj, lv_event_t event);
+        static void PlayPauseButtonEventHandler(lv_obj_t* obj, lv_event_t event);
+        static void StopButtonEventHandler(lv_obj_t* obj, lv_event_t event);
+        static void CloseButtonEventHandler(lv_obj_t* obj, lv_event_t event);
+
+        void OnStartEvent();
+        void OnPlayPauseEvent();
+        void OnStopEvent();
+        void OnCloseEvent();
+
         bool OnButtonPushed() override;
         bool OnTouchEvent(Pinetime::Applications::TouchEvents event) override;
 
-        void EnableScreenSleeping();
-        void DisableScreenSleeping();
+        void StartTasks();
+        void PauseTasks();
+        void StopTasks();
         void PrepareAppToExit();
         void CleanObjects();
 
@@ -88,33 +98,29 @@ namespace Pinetime {
         uint32_t runStartTripSteps = 0;
 
         lv_obj_t *appTitleLabel;
-        lv_obj_t *playButton, *stopButton, *closeButton;
-        lv_obj_t *playButtonIcon, *stopButtonIcon, *closeButtonIcon;
+        lv_obj_t *playButton, *playPauseButton, *stopButton, *closeButton;
+        lv_obj_t *playButtonIcon, *playPauseButtonIcon;
+        lv_obj_t *stopButtonIcon, *closeButtonIcon;
 
-        lv_obj_t *timeTitleLabel, *timeValueLabel;
-        lv_obj_t *distanceTitleLabel, *distanceValueLabel;
-        lv_obj_t *speedTitleLabel, *speedValueLabel;
-        lv_obj_t *heartRateTitleLabel, *heartRateValueLabel;
+        lv_obj_t *timeValueLabel;
+        lv_obj_t *distanceValueLabel;
+        lv_obj_t *speedValueLabel;
+        lv_obj_t *heartRateValueLabel;
         
         const int appVersionMajor = 0;
-        const int appVersionMinor = 5;
-        const int appVersionPatch = 0;
+        const int appVersionMinor = 6;
+        const int appVersionPatch = 3;
 
         const char* appTitle = "RunTracker";
-        const char* timeTitleText = "Time";
-        const char* distanceTitleText = "Dist.";
-        const char* speedTitleText = "Speed";
-        const char* heartRateTitleText = "HR";
-
-        const char* timeReportTitleText = "Time: ";
-        const char* distanceReportTitleText = "Dist.: ";
-        const char* speedReportTitleText = "Speed (m/M/a):";
-        const char* heartRateReportTitleText = "HR (m/M/a):";
+        const char* distanceUnit = "km";
 
         bool isTracking = false;
         bool isExiting = false;
 
-        lv_task_t* taskRefresh = nullptr;
+        lv_task_t* taskRefresh;
+
+        lv_coord_t horizontal_offset = 0;
+        lv_coord_t vertical_offset = 16;
 
         Utility::DirtyValue<uint32_t> dirtyRenderedSeconds {0};
 

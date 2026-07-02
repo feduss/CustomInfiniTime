@@ -9,6 +9,9 @@ namespace Colors {
   static constexpr lv_color_t blue = LV_COLOR_MAKE(0x0, 0x50, 0xff);
   static constexpr lv_color_t lightGray = LV_COLOR_MAKE(0xb0, 0xb0, 0xb0);
   static constexpr lv_color_t gray = LV_COLOR_MAKE(0x50, 0x50, 0x50);
+  static constexpr lv_color_t red = LV_COLOR_MAKE(0xFF, 0x00, 0x00);
+  static constexpr lv_color_t yellow = LV_COLOR_MAKE(0xFF, 0xFF, 0x00);
+  static constexpr lv_color_t white = LV_COLOR_MAKE(0xFF, 0xFF, 0xFF);
 
   static constexpr lv_color_t bg = LV_COLOR_MAKE(0x5d, 0x69, 0x7e);
   static constexpr lv_color_t bgAlt = LV_COLOR_MAKE(0x38, 0x38, 0x38);
